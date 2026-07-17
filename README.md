@@ -94,6 +94,42 @@ float[] cleaned = subtractor.Process(noisySignalSpan, noiseProfile);
 
 Extension methods that provide additional functionality for `SpectralSubtractor` including pre-allocated buffers, normalized noise profiles, and silence detection.
 
+## SpectralSubtractorValidation
+
+Provides validation methods for `SpectralSubtractor` instances and noise profiles. The validation checks ensure that the over-subtraction factor (`Alpha`) is at least 1.0 and the spectral floor (`Beta`) is within the valid range [0, 1]. Noise profiles are validated for null values, empty arrays, and negative or infinite values.
+
+Minimal usage examples:
+
+```csharp
+// 1. Validate a SpectralSubtractor instance
+var subtractor = new SpectralSubtractor(frameSize: 1024, hop: 256)
+{
+    Alpha = 2.0,
+    Beta = 0.02
+};
+
+// Check if valid (returns false if invalid)
+bool isValid = subtractor.IsValid();
+
+// Get detailed validation errors (returns empty list if valid)
+IReadOnlyList<string> errors = subtractor.Validate();
+
+// Throw exception if invalid
+subtractor.EnsureValid();
+
+// 2. Validate a noise profile
+var noiseProfile = new double[513]; // Typical FFT half-size + 1
+
+// Check if valid (returns false if invalid)
+bool profileValid = noiseProfile.IsValidNoiseProfile();
+
+// Get detailed validation errors (returns empty list if valid)
+IReadOnlyList<string> profileErrors = noiseProfile.ValidateNoiseProfile();
+
+// Throw exception if invalid
+noiseProfile.EnsureValidNoiseProfile();
+```
+
 Public surface:
 ```csharp
 public static Span<float> Process(this SpectralSubtractor subtractor, ReadOnlySpan<float> signal, double[] noiseProfile, Span<float> output)
