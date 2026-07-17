@@ -1,0 +1,9 @@
+
+## Notes
+
+* **Input length** – All processing methods require the input span to contain at least one full frame (`GetFrameSize()`). If the length is not an exact multiple of the hop size, the final partial frame is silently discarded.
+* **Noise profile size** – The `noiseProfile` array must have exactly `frameSize / 2 + 1` elements (the number of positive‑frequency FFT bins). Supplying a mismatched array results in `ArgumentException`.
+* **Thread‑safety** – Extension methods are **not** thread‑safe when the same `SpectralSubtractor` instance is used concurrently. Each thread should work with its own instance or synchronize access externally.
+* **Memory allocation** – `Process` returns a `Span<float>` that references an internally allocated buffer reused across calls. Preserve the span only until the next call on the same `SpectralSubtractor`; otherwise copy the data.
+* **Silence detection** – The `silenceThreshold` is compared against the frame‑wise energy (sum of squares). Very low thresholds may cause all frames to be treated as signal, while high thresholds may suppress low‑level content.
+* **Window function** – The default window is Hann. Changing the window requires modifying the internal `WindowFunctions` class; the extension method will automatically reflect the new coefficients via `GetWindow()`.
