@@ -1,3 +1,4 @@
+using System;
 using System.Numerics;
 using System.Text.Json;
 using System.Text.Json.Serialization;
@@ -5,7 +6,7 @@ using System.Text.Json.Serialization;
 namespace SpectralDenoise;
 
 /// <summary>
-/// Provides System.Text.Json serialization helpers for <see cref="Fft"/>.
+/// Provides System.Text.Json serialization helpers for <see cref="Complex"/> arrays.
 /// </summary>
 public static class FftJsonExtensions
 {
@@ -24,11 +25,11 @@ public static class FftJsonExtensions
     };
 
     /// <summary>
-    /// Serializes the FFT result to a JSON string.
+    /// Serializes a <see cref="Complex"/> array to a JSON string.
     /// </summary>
-    /// <param name="value">The FFT result to serialize.</param>
+    /// <param name="value">The <see cref="Complex"/> array to serialize.</param>
     /// <param name="indented">Whether to format the JSON with indentation for readability.</param>
-    /// <returns>A JSON string representation of the FFT result.</returns>
+    /// <returns>A JSON string representation of the array.</returns>
     /// <exception cref="ArgumentNullException">Thrown when <paramref name="value"/> is null.</exception>
     public static string ToJson(this Complex[] value, bool indented = false)
     {
@@ -38,10 +39,10 @@ public static class FftJsonExtensions
     }
 
     /// <summary>
-    /// Deserializes a JSON string to an FFT result.
+    /// Deserializes a JSON string to a <see cref="Complex"/> array.
     /// </summary>
     /// <param name="json">The JSON string to deserialize.</param>
-    /// <returns>The deserialized FFT result, or null if the JSON is invalid.</returns>
+    /// <returns>The deserialized <see cref="Complex"/> array, or null if the JSON is invalid.</returns>
     /// <exception cref="ArgumentException">Thrown when <paramref name="json"/> is null or empty.</exception>
     public static Complex[]? FromJson(string json)
     {
@@ -58,10 +59,10 @@ public static class FftJsonExtensions
     }
 
     /// <summary>
-    /// Attempts to deserialize a JSON string to an FFT result.
+    /// Attempts to deserialize a JSON string to a <see cref="Complex"/> array.
     /// </summary>
     /// <param name="json">The JSON string to deserialize.</param>
-    /// <param name="value">Receives the deserialized FFT result, or null if deserialization fails.</param>
+    /// <param name="value">Receives the deserialized <see cref="Complex"/> array, or null if deserialization fails.</param>
     /// <returns>True if deserialization succeeded; otherwise, false.</returns>
     /// <exception cref="ArgumentException">Thrown when <paramref name="json"/> is null or empty.</exception>
     public static bool TryFromJson(string json, out Complex[]? value)
