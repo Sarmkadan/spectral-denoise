@@ -484,3 +484,7 @@ $RECYCLE.BIN/
 # local scratch audio - don't want wavs in the repo
 *.wav
 /samples/*.wav
+bin/
+obj/
+TestResults/
+.aider*
