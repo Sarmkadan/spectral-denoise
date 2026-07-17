@@ -56,6 +56,40 @@ The tool prints input vs output RMS so you get a rough before/after number.
 - [ ] Real metric (segmental SNR at least) instead of global RMS
 - [ ] Test on an actual noisy voice recording, not just the synthetic tone
 
+## SpectralSubtractor
+
+The core algorithm class that implements classic magnitude spectral subtraction
+(Boll 1979). It estimates a noise profile from a quiet region, then subtracts
+that profile from every STFT frame while preserving the original phase. The
+result is reconstructed via overlap-add.
+
+Public surface:
+```csharp
+public double Alpha { get; init; }   // over-subtraction factor
+public double Beta  { get; init; }   // spectral floor to mask musical noise
+
+public SpectralSubtractor(int frameSize = 1024, int hop = 256)
+
+public double[] EstimateNoiseProfile(ReadOnlySpan<float> noiseOnly)
+public float[]   Process(ReadOnlySpan<float> signal, double[] noiseProfile)
+```
+
+Minimal usage example:
+```csharp
+// 1. create instance
+var subtractor = new SpectralSubtractor(frameSize: 1024, hop: 256)
+{
+    Alpha = 2.0,   // aggressive subtraction
+    Beta  = 0.02   // 2 % spectral floor
+};
+
+// 2. estimate noise profile from leading silence
+var noiseProfile = subtractor.EstimateNoiseProfile(noiseOnlySpan);
+
+// 3. denoise the whole signal
+float[] cleaned = subtractor.Process(noisySignalSpan, noiseProfile);
+```
+
 ## Layout
 
 ```
