@@ -90,6 +90,46 @@ var noiseProfile = subtractor.EstimateNoiseProfile(noiseOnlySpan);
 float[] cleaned = subtractor.Process(noisySignalSpan, noiseProfile);
 ```
 
+## SpectralSubtractorExtensions
+
+Extension methods that provide additional functionality for `SpectralSubtractor` including pre-allocated buffers, normalized noise profiles, and silence detection.
+
+Public surface:
+```csharp
+public static Span<float> Process(this SpectralSubtractor subtractor, ReadOnlySpan<float> signal, double[] noiseProfile, Span<float> output)
+public static double[] EstimateNormalizedNoiseProfile(this SpectralSubtractor subtractor, ReadOnlySpan<float> noiseOnly, bool normalize = true)
+public static float[] ProcessWithSilenceDetection(this SpectralSubtractor subtractor, ReadOnlySpan<float> signal, double[] noiseProfile, float silenceThreshold = 0.01f)
+public static int GetFrameSize(this SpectralSubtractor subtractor)
+public static int GetHopSize(this SpectralSubtractor subtractor)
+public static double[] GetWindow(this SpectralSubtractor subtractor)
+```
+
+Minimal usage examples:
+
+```csharp
+// 1. Process with pre-allocated output buffer (zero-allocation)
+var subtractor = new SpectralSubtractor(frameSize: 1024, hop: 256);
+var noiseProfile = subtractor.EstimateNormalizedNoiseProfile(noiseOnlySpan);
+
+var outputBuffer = new float[signal.Length];
+Span<float> outputSpan = subtractor.Process(signal, noiseProfile, outputBuffer);
+
+// 2. Estimate a normalized noise profile
+var normalizedProfile = subtractor.EstimateNormalizedNoiseProfile(noiseOnlySpan);
+
+// 3. Process with automatic silence detection
+float[] cleanedWithSilenceDetection = subtractor.ProcessWithSilenceDetection(
+    noisySignalSpan, 
+    noiseProfile,
+    silenceThreshold: 0.005f
+);
+
+// 4. Get configuration parameters
+int frameSize = subtractor.GetFrameSize(); // 1024
+int hopSize = subtractor.GetHopSize();    // 256
+double[] window = subtractor.GetWindow();   // Hann window coefficients
+```
+
 ## Layout
 
 ```
