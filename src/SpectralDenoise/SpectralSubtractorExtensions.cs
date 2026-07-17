@@ -61,8 +61,8 @@ public static class SpectralSubtractorExtensions
         if (normalize)
         {
             // Normalize to target RMS of 0.1 (arbitrary but reasonable for audio)
+            const double targetRms = 0.1;
             double rms = Math.Sqrt(profile.Sum(p => p * p) / profile.Length);
-            double targetRms = 0.1;
 
             if (rms > 1e-10)
             {
@@ -89,8 +89,9 @@ public static class SpectralSubtractorExtensions
     public static float[] ProcessWithSilenceDetection(this SpectralSubtractor subtractor, ReadOnlySpan<float> signal, double[] noiseProfile, float silenceThreshold = 0.01f)
     {
         ArgumentNullException.ThrowIfNull(subtractor);
+        ArgumentNullException.ThrowIfNull(subtractor);
         if (signal == null) throw new ArgumentNullException(nameof(signal));
-        if (noiseProfile == null) throw new ArgumentNullException(nameof(noiseProfile));
+        ArgumentNullException.ThrowIfNull(noiseProfile);
 
         if (silenceThreshold is < 0 or > 1)
             throw new ArgumentOutOfRangeException(nameof(silenceThreshold), "Silence threshold must be between 0.0 and 1.0");
@@ -100,7 +101,7 @@ public static class SpectralSubtractorExtensions
             throw new ArgumentException("Noise profile bin count does not match frame size.");
 
         var output = new float[signal.Length];
-        var normalisation = new float[signal.Length];
+        var normalization = new float[signal.Length];
 
         for (int start = 0; start + subtractor.GetFrameSize() <= signal.Length; start += subtractor.GetHopSize())
         {
@@ -125,14 +126,15 @@ public static class SpectralSubtractorExtensions
             for (int i = 0; i < frameOutput.Length; i++)
             {
                 output[start + i] += frameOutput[i];
-                normalisation[start + i] += 1.0f;
+                normalization[start + i] += 1.0f;
             }
         }
 
         // undo the analysis+synthesis window weighting
+        const float normalizationThreshold = 1e-6f;
         for (int i = 0; i < output.Length; i++)
-            if (normalisation[i] > 1e-6f)
-                output[i] /= normalisation[i];
+            if (normalization[i] > normalizationThreshold)
+                output[i] /= normalization[i];
 
         return output;
     }
