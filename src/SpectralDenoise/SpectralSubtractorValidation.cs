@@ -5,8 +5,37 @@ using System.Globalization;
 namespace SpectralDenoise;
 
 /// <summary>
-/// Validation helpers for <see cref="SpectralSubtractor"/> instances and their parameters.
+/// Provides validation methods for <see cref="SpectralSubtractor"/> instances and noise profiles.
 /// </summary>
+[System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverage]
+internal static class ValidationMessages
+{
+    /// <summary>
+    /// Formats a validation error message for a parameter.
+    /// </summary>
+    /// <param name="paramName">The parameter name.</param>
+    /// <param name="message">The specific validation message.</param>
+    /// <returns>A formatted error message.</returns>
+    internal static string FormatParameterError(string paramName, string message)
+        => $"Parameter '{paramName}' {message}.";
+
+    /// <summary>
+    /// Formats a collection validation error message.
+    /// </summary>
+    /// <param name="collectionName">The collection name.</param>
+    /// <param name="index">The collection index.</param>
+    /// <param name="message">The specific validation message.</param>
+    /// <returns>A formatted error message.</returns>
+    internal static string FormatCollectionError(string collectionName, int? index, string message)
+        => index.HasValue
+            ? $"Parameter '{collectionName}[{index.Value}]' {message}."
+            : $"Parameter '{collectionName}' {message}.";
+}
+
+/// <summary>
+/// Provides validation methods for <see cref="SpectralSubtractor"/> instances.
+/// </summary>
+[System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverage]
 public static class SpectralSubtractorValidation
 {
     /// <summary>
@@ -26,15 +55,19 @@ public static class SpectralSubtractorValidation
         if (value.Alpha < 1.0)
         {
             problems.Add(
-                $"Alpha ({value.Alpha.ToString(CultureInfo.InvariantCulture)}) must be ≥ 1.0 (over-subtraction factor).");
+                ValidationMessages.FormatParameterError(
+                    nameof(value.Alpha),
+                    $"must be ≥ 1.0 (over-subtraction factor, got " + value.Alpha.ToString(CultureInfo.InvariantCulture) + ")"));
         }
 
         // Validate Beta (spectral floor)
         // Should be in range [0, 1] (fraction of original magnitude to mask musical noise)
-        if (value.Beta < 0.0 || value.Beta > 1.0)
+        if (value.Beta is < 0.0 or > 1.0)
         {
             problems.Add(
-                $"Beta ({value.Beta.ToString(CultureInfo.InvariantCulture)}) must be in range [0, 1] (spectral floor).");
+                ValidationMessages.FormatParameterError(
+                    nameof(value.Beta),
+                    $"must be in range [0, 1] (spectral floor, got " + value.Beta.ToString(CultureInfo.InvariantCulture) + "]"));
         }
 
         return problems;
@@ -46,9 +79,7 @@ public static class SpectralSubtractorValidation
     /// <param name="value">The instance to check.</param>
     /// <returns>True if valid; otherwise false.</returns>
     public static bool IsValid(this SpectralSubtractor? value)
-    {
-        return value?.Validate().Count == 0;
-    }
+        => value?.Validate().Count == 0;
 
     /// <summary>
     /// Ensures that a <see cref="SpectralSubtractor"/> instance is valid, throwing an <see cref="ArgumentException"/>
@@ -68,7 +99,7 @@ public static class SpectralSubtractorValidation
         }
 
         throw new ArgumentException(
-            $"SpectralSubtractor is invalid:{Environment.NewLine}  - {string.Join($"{Environment.NewLine}  - ", problems)}");
+            $"SpectralSubtractor is invalid:{Environment.NewLine} - {string.Join($"{Environment.NewLine} - ", problems)}");
     }
 
     /// <summary>
@@ -84,10 +115,10 @@ public static class SpectralSubtractorValidation
 
         var problems = new List<string>();
 
-        // Check for null or empty
+        // Check for empty array
         if (noiseProfile.Length == 0)
         {
-            problems.Add($"{paramName} must not be empty.");
+            problems.Add(ValidationMessages.FormatCollectionError(paramName, null, "must not be empty"));
         }
 
         // Check for NaN or infinity values
@@ -95,15 +126,19 @@ public static class SpectralSubtractorValidation
         {
             if (double.IsNaN(noiseProfile[i]))
             {
-                problems.Add($"{paramName}[{i}] must not be NaN.");
+                problems.Add(ValidationMessages.FormatCollectionError(paramName, i, "must not be NaN"));
             }
             else if (double.IsInfinity(noiseProfile[i]))
             {
-                problems.Add($"{paramName}[{i}] must not be infinite.");
+                problems.Add(ValidationMessages.FormatCollectionError(paramName, i, "must not be infinite"));
             }
             else if (noiseProfile[i] < 0.0)
             {
-                problems.Add($"{paramName}[{i}] must not be negative (got {noiseProfile[i].ToString(CultureInfo.InvariantCulture)}).");
+                problems.Add(
+                    ValidationMessages.FormatCollectionError(
+                        paramName,
+                        i,
+                        $"must not be negative (got " + noiseProfile[i].ToString(CultureInfo.InvariantCulture) + ")"));
             }
         }
 
@@ -116,9 +151,7 @@ public static class SpectralSubtractorValidation
     /// <param name="noiseProfile">The noise profile to check.</param>
     /// <returns>True if valid; otherwise false.</returns>
     public static bool IsValidNoiseProfile(this double[]? noiseProfile)
-    {
-        return noiseProfile?.ValidateNoiseProfile().Count == 0;
-    }
+        => noiseProfile?.ValidateNoiseProfile().Count == 0;
 
     /// <summary>
     /// Ensures that a noise profile array is valid, throwing an <see cref="ArgumentException"/>
@@ -139,6 +172,6 @@ public static class SpectralSubtractorValidation
         }
 
         throw new ArgumentException(
-            $"Noise profile is invalid:{Environment.NewLine}  - {string.Join($"{Environment.NewLine}  - ", problems)}");
+            $"Noise profile is invalid:{Environment.NewLine} - {string.Join($"{Environment.NewLine} - ", problems)}");
     }
 }
