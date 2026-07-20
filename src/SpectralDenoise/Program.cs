@@ -1,11 +1,11 @@
 using SpectralDenoise;
 
-// spectral-denoise <input.wav> <output.wav> [--noise-seconds N] [--frame-size N] [--hop N]
+// spectral-denoise [--help] [--input PATH] [--output PATH] [--noise-frames N] [--noise-seconds N] [--frame-size N] [--overlap N] [--hop N] [--save-noise PATH] [--load-noise PATH]
 
-if (args.Length < 2)
+if (args.Length == 0 || args.Contains("--help") || args.Contains("-h"))
 {
     PrintUsage();
-    return 1;
+    return 0;
 }
 
 string inputPath = null;
@@ -19,23 +19,49 @@ string? loadNoisePath = null;
 for (int i = 0; i < args.Length; i++)
 {
     string arg = args[i];
-    if (arg.StartsWith("--"))
+
+    if (arg == "--help" || arg == "-h")
+    {
+        PrintUsage();
+        return 0;
+    }
+    else if (arg.StartsWith("--"))
     {
         if (i + 1 >= args.Length)
         {
             Console.Error.WriteLine($"Error: Missing value for argument {arg}");
             PrintUsage();
-            return 1;
+            return 2;
         }
 
         string value = args[++i];
         switch (arg)
         {
+            case "--input":
+                inputPath = value;
+                break;
+
+            case "--output":
+                outputPath = value;
+                break;
+
+            case "--noise-frames":
+                if (!int.TryParse(value, out var noiseFrames) || noiseFrames <= 0)
+                {
+                    Console.Error.WriteLine("Error: --noise-frames must be a positive integer.");
+                    PrintUsage();
+                    return 2;
+                }
+                // Convert frames to seconds based on typical sample rate (44100 Hz)
+                noiseSeconds = noiseFrames / 44100.0;
+                break;
+
             case "--noise-seconds":
                 if (!double.TryParse(value, System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out noiseSeconds) || noiseSeconds <= 0)
                 {
                     Console.Error.WriteLine("Error: --noise-seconds must be a positive number.");
-                    return 1;
+                    PrintUsage();
+                    return 2;
                 }
                 break;
 
@@ -43,12 +69,23 @@ for (int i = 0; i < args.Length; i++)
                 if (!int.TryParse(value, out frameSize) || frameSize <= 0)
                 {
                     Console.Error.WriteLine("Error: --frame-size must be a positive integer.");
-                    return 1;
+                    PrintUsage();
+                    return 2;
                 }
                 if (!IsPowerOfTwo(frameSize))
                 {
                     Console.Error.WriteLine("Error: --frame-size must be a power of two.");
-                    return 1;
+                    PrintUsage();
+                    return 2;
+                }
+                break;
+
+            case "--overlap":
+                if (!int.TryParse(value, out hop) || hop <= 0)
+                {
+                    Console.Error.WriteLine("Error: --overlap must be a positive integer.");
+                    PrintUsage();
+                    return 2;
                 }
                 break;
 
@@ -56,7 +93,8 @@ for (int i = 0; i < args.Length; i++)
                 if (!int.TryParse(value, out hop) || hop <= 0)
                 {
                     Console.Error.WriteLine("Error: --hop must be a positive integer.");
-                    return 1;
+                    PrintUsage();
+                    return 2;
                 }
                 break;
 
@@ -71,12 +109,12 @@ for (int i = 0; i < args.Length; i++)
             default:
                 Console.Error.WriteLine($"Error: Unknown argument {arg}");
                 PrintUsage();
-                return 1;
+                return 2;
         }
     }
     else
     {
-        // Positional arguments
+        // Positional arguments (for backwards compatibility)
         if (inputPath == null)
         {
             inputPath = arg;
@@ -89,16 +127,23 @@ for (int i = 0; i < args.Length; i++)
         {
             Console.Error.WriteLine("Error: Too many arguments provided.");
             PrintUsage();
-            return 1;
+            return 2;
         }
     }
 }
 
-if (inputPath == null || outputPath == null)
+if (inputPath == null)
 {
-    Console.Error.WriteLine("Error: Input and output paths are required.");
+    Console.Error.WriteLine("Error: --input is required.");
     PrintUsage();
-    return 1;
+    return 2;
+}
+
+if (outputPath == null)
+{
+    Console.Error.WriteLine("Error: --output is required.");
+    PrintUsage();
+    return 2;
 }
 
 return Denoise(inputPath, outputPath, noiseSeconds, frameSize, hop, saveNoisePath, loadNoisePath);
@@ -106,14 +151,24 @@ return Denoise(inputPath, outputPath, noiseSeconds, frameSize, hop, saveNoisePat
 static void PrintUsage()
 {
     Console.Error.WriteLine("usage:");
-    Console.Error.WriteLine(" spectral-denoise <input.wav> <output.wav> [options]");
+    Console.Error.WriteLine(" spectral-denoise [--help] [--input PATH] [--output PATH] [options]");
     Console.Error.WriteLine();
     Console.Error.WriteLine("options:");
-    Console.Error.WriteLine(" --noise-seconds N Seconds of noise to sample from start of file (default: 0.5)");
-    Console.Error.WriteLine(" --frame-size N FFT frame size, must be power of two (default: 1024)");
-    Console.Error.WriteLine(" --hop N Hop size between frames (default: 256)");
-    Console.Error.WriteLine(" --save-noise PATH Save noise profile to JSON file");
-    Console.Error.WriteLine(" --load-noise PATH Load noise profile from JSON file");
+    Console.Error.WriteLine(" --help, -h              Show this help message");
+    Console.Error.WriteLine(" --input PATH             Input WAV file path (required)");
+    Console.Error.WriteLine(" --output PATH            Output WAV file path (required)");
+    Console.Error.WriteLine(" --noise-frames N        Number of frames to sample for noise estimation");
+    Console.Error.WriteLine(" --noise-seconds N       Seconds of noise to sample from start of file (default: 0.5)");
+    Console.Error.WriteLine(" --frame-size N          FFT frame size, must be power of two (default: 1024)");
+    Console.Error.WriteLine(" --overlap N             Overlap between frames (default: 256)");
+    Console.Error.WriteLine(" --hop N                 Hop size between frames (default: 256)");
+    Console.Error.WriteLine(" --save-noise PATH        Save noise profile to JSON file");
+    Console.Error.WriteLine(" --load-noise PATH        Load noise profile from JSON file");
+    Console.Error.WriteLine();
+    Console.Error.WriteLine("examples:");
+    Console.Error.WriteLine(" spectral-denoise --input input.wav --output output.wav");
+    Console.Error.WriteLine(" spectral-denoise --input input.wav --output output.wav --noise-seconds 1.0");
+    Console.Error.WriteLine(" spectral-denoise --help");
 }
 
 static bool IsPowerOfTwo(int n)
