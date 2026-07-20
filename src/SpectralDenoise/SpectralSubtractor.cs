@@ -50,9 +50,10 @@ public sealed class SpectralSubtractor
 
     /// <summary>
     /// Spectral floor. Minimum fraction of the original magnitude kept,
-    /// preventing musical‑noise zeros. Default = 0.01.
+    /// preventing musical‑noise zeros. Default = 0.02.
+/// Range: 0..1.
     /// </summary>
-    public double SpectralFloor { get; set; } = 0.01;
+    public double SpectralFloor { get; set; } = 0.02;
 
     /// <summary>
     /// Denoising mode: SpectralSubtraction (classic) or Wiener (Wiener filter).

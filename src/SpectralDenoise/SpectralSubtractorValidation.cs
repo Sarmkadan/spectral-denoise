@@ -60,14 +60,14 @@ public static class SpectralSubtractorValidation
                     $"must be ≥ 1.0 (over-subtraction factor, got " + value.Alpha.ToString(CultureInfo.InvariantCulture) + ")"));
         }
 
-        // Validate Beta (spectral floor)
+        // Validate SpectralFloor (spectral floor)
         // Should be in range [0, 1] (fraction of original magnitude to mask musical noise)
-        if (value.Beta is < 0.0 or > 1.0)
+        if (value.SpectralFloor is < 0.0 or > 1.0)
         {
             problems.Add(
                 ValidationMessages.FormatParameterError(
-                    nameof(value.Beta),
-                    $"must be in range [0, 1] (spectral floor, got " + value.Beta.ToString(CultureInfo.InvariantCulture) + "]"));
+                    nameof(value.SpectralFloor),
+                    $"must be in range [0, 1] (spectral floor, got " + value.SpectralFloor.ToString(CultureInfo.InvariantCulture) + "]"));
         }
 
         return problems;
