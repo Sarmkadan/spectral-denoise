@@ -89,25 +89,24 @@ public static class SpectralSubtractorExtensions
     public static float[] ProcessWithSilenceDetection(this SpectralSubtractor subtractor, ReadOnlySpan<float> signal, double[] noiseProfile, float silenceThreshold = 0.01f)
     {
         ArgumentNullException.ThrowIfNull(subtractor);
-        ArgumentNullException.ThrowIfNull(subtractor);
         if (signal == null) throw new ArgumentNullException(nameof(signal));
         ArgumentNullException.ThrowIfNull(noiseProfile);
 
         if (silenceThreshold is < 0 or > 1)
             throw new ArgumentOutOfRangeException(nameof(silenceThreshold), "Silence threshold must be between 0.0 and 1.0");
 
-        int bins = subtractor.GetFrameSize() / 2 + 1;
+        int bins = subtractor.FrameSize / 2 + 1;
         if (noiseProfile.Length != bins)
             throw new ArgumentException("Noise profile bin count does not match frame size.");
 
         var output = new float[signal.Length];
         var normalization = new float[signal.Length];
 
-        for (int start = 0; start + subtractor.GetFrameSize() <= signal.Length; start += subtractor.GetHopSize())
+        for (int start = 0; start + subtractor.FrameSize <= signal.Length; start += subtractor.Hop)
         {
             // Check if frame is silent
             bool isSilent = true;
-            for (int i = 0; i < subtractor.GetFrameSize(); i++)
+            for (int i = 0; i < subtractor.FrameSize; i++)
             {
                 if (Math.Abs(signal[start + i]) > silenceThreshold)
                 {
@@ -120,7 +119,7 @@ public static class SpectralSubtractorExtensions
                 continue; // Skip silent frames
 
             // Use the public Process method for actual denoising
-            var frameOutput = subtractor.Process(signal.Slice(start, Math.Min(subtractor.GetFrameSize(), signal.Length - start)), noiseProfile);
+            var frameOutput = subtractor.Process(signal.Slice(start, Math.Min(subtractor.FrameSize, signal.Length - start)), noiseProfile);
 
             // Accumulate the result
             for (int i = 0; i < frameOutput.Length; i++)
@@ -148,7 +147,7 @@ public static class SpectralSubtractorExtensions
     public static int GetFrameSize(this SpectralSubtractor subtractor)
     {
         ArgumentNullException.ThrowIfNull(subtractor);
-        return subtractor.GetFrameSize();
+        return subtractor.FrameSize;
     }
 
     /// <summary>
@@ -160,7 +159,7 @@ public static class SpectralSubtractorExtensions
     public static int GetHopSize(this SpectralSubtractor subtractor)
     {
         ArgumentNullException.ThrowIfNull(subtractor);
-        return subtractor.GetHopSize();
+        return subtractor.Hop;
     }
 
     /// <summary>
@@ -172,6 +171,6 @@ public static class SpectralSubtractorExtensions
     public static double[] GetWindow(this SpectralSubtractor subtractor)
     {
         ArgumentNullException.ThrowIfNull(subtractor);
-        return subtractor.GetWindow();
+        return (double[])subtractor.Window.ToArray().Clone();
     }
 }

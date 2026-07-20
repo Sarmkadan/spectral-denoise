@@ -3,6 +3,22 @@ using System.Numerics;
 namespace SpectralDenoise;
 
 /// <summary>
+/// Denoising mode for spectral processing
+/// </summary>
+public enum DenoiseMode
+{
+    /// <summary>
+    /// Classic spectral subtraction (Boll, 1979)
+    /// </summary>
+    SpectralSubtraction,
+
+    /// <summary>
+    /// Wiener filtering: gain = SNR/(SNR+1) per frequency bin
+    /// </summary>
+    Wiener
+}
+
+/// <summary>
 /// Classic magnitude spectral subtraction (Boll, 1979) on an STFT.
 ///
 /// Idea: estimate the noise magnitude spectrum from a "quiet" region of the
@@ -36,6 +52,27 @@ public sealed class SpectralSubtractor
     /// preventing musical‑noise zeros. Default = 0.01.
     /// </summary>
     public double SpectralFloor { get; set; } = 0.01;
+
+    /// <summary>
+    /// Denoising mode: SpectralSubtraction (classic) or Wiener (Wiener filter).
+    /// Default = SpectralSubtraction (maintains backward compatibility).
+    /// </summary>
+    public DenoiseMode Mode { get; init; } = DenoiseMode.SpectralSubtraction;
+
+    /// <summary>
+    /// Gets the frame size (number of samples per analysis frame).
+    /// </summary>
+    public int FrameSize => _frameSize;
+
+    /// <summary>
+    /// Gets the hop size (number of samples between analysis frames).
+    /// </summary>
+    public int Hop => _hop;
+
+    /// <summary>
+    /// Gets the analysis window function.
+    /// </summary>
+    public ReadOnlySpan<double> Window => _window;
 
     public SpectralSubtractor(int frameSize = 1024, int hop = 256)
     {
@@ -91,14 +128,34 @@ public sealed class SpectralSubtractor
         {
             var spec = Analyze(signal.Slice(start, _frameSize));
 
-            // subtract on the lower half, then mirror for the conjugate side
+            // Apply denoising based on mode
             for (int b = 0; b < bins; b++)
             {
                 double mag = spec[b].Magnitude;
                 double phase = spec[b].Phase;
 
-                // Use the new tuning properties
-                double cleaned = mag - OverSubtractionFactor * noiseProfile[b];
+                double cleaned;
+
+                if (Mode == DenoiseMode.Wiener)
+                {
+                    // Wiener filter: gain = SNR / (SNR + 1)
+                    // where SNR = signal_power / noise_power
+                    double signalPower = mag * mag;
+                    double noisePower = noiseProfile[b] * noiseProfile[b];
+
+                    // Avoid division by zero and negative SNR
+                    double snr = signalPower > 1e-20 ? signalPower / noisePower : 0.0;
+                    double gain = snr / (snr + 1.0);
+
+                    cleaned = mag * gain;
+                }
+                else
+                {
+                    // Classic spectral subtraction
+                    cleaned = mag - OverSubtractionFactor * noiseProfile[b];
+                }
+
+                // Apply spectral floor
                 double floor = SpectralFloor * mag;
                 if (cleaned < floor) cleaned = floor;
 
