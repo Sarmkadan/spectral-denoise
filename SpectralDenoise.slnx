@@ -1,5 +1,1 @@
-<Solution>
-  <Folder Name="/src/">
-    <Project Path="src/SpectralDenoise/SpectralDenoise.csproj" />
-  </Folder>
-</Solution>
+<Solution> <Folder Name="/src/"> <Project Path="src/SpectralDenoise/SpectralDenoise.csproj" /> </Folder> <Folder Name="/tests/"> <Project Path="tests/SpectralDenoise.Tests/SpectralDenoise.Tests.csproj" /> </Folder> </Solution>

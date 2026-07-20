@@ -1,6 +1,6 @@
 namespace SpectralDenoise;
 
-internal static class WindowFunctions
+public static class WindowFunctions
 {
     /// <summary>
     /// Periodic Hann window. Periodic (not symmetric) variant is the right one
