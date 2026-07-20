@@ -33,6 +33,7 @@ public sealed class SpectralSubtractor
     private readonly int _frameSize;
     private readonly int _hop;
     private readonly double[] _window;
+    private readonly double[] _prevGain;
 
     /// <summary>Over‑subtraction factor. 1.0 = plain Boll. Higher = more aggressive.</summary>
     public double Alpha { get; init; } = 2.0;
@@ -60,6 +61,18 @@ public sealed class SpectralSubtractor
     public DenoiseMode Mode { get; init; } = DenoiseMode.SpectralSubtraction;
 
     /// <summary>
+    /// Attack time in milliseconds for gain smoothing. Controls how quickly gain increases.
+    /// Default = 0 (no smoothing).
+    /// </summary>
+    public double AttackMs { get; init; } = 0;
+
+    /// <summary>
+    /// Release time in milliseconds for gain smoothing. Controls how quickly gain decreases.
+    /// Default = 0 (no smoothing).
+    /// </summary>
+    public double ReleaseMs { get; init; } = 0;
+
+    /// <summary>
     /// Gets the frame size (number of samples per analysis frame).
     /// </summary>
     public int FrameSize => _frameSize;
@@ -74,6 +87,28 @@ public sealed class SpectralSubtractor
     /// </summary>
     public ReadOnlySpan<double> Window => _window;
 
+    /// <summary>
+    /// Calculates the one-pole smoothing coefficient from time constant in milliseconds.
+    /// </summary>
+    /// <param name="timeMs">Time constant in milliseconds</param>
+    /// <param name="sampleRate">Audio sample rate in Hz</param>
+    /// <param name="isAttack">True for attack (rise time), false for release (fall time)</param>
+    /// <returns>Smoothing coefficient (0 to 1)</returns>
+    private static double CalculateSmoothingCoefficient(double timeMs, double sampleRate, bool isAttack)
+    {
+        if (timeMs <= 0)
+            return 1.0; // No smoothing - immediate response
+
+        // Convert milliseconds to seconds
+        double timeSeconds = timeMs / 1000.0;
+        // Calculate coefficient: coeff = 1 - exp(-1/(tau * fs))
+        // where tau = timeSeconds, fs = sampleRate
+        double tau = timeSeconds;
+        double coeff = 1.0 - Math.Exp(-1.0 / (tau * sampleRate));
+
+        return coeff;
+    }
+
     public SpectralSubtractor(int frameSize = 1024, int hop = 256)
     {
         if ((frameSize & (frameSize - 1)) != 0)
@@ -81,6 +116,16 @@ public sealed class SpectralSubtractor
         _frameSize = frameSize;
         _hop = hop;
         _window = WindowFunctions.Hann(frameSize);
+        _prevGain = new double[frameSize / 2 + 1];
+    }
+
+    /// <summary>
+    /// Resets the smoothing state (previous gain values). Useful when processing
+    /// a new audio segment or when the signal characteristics change significantly.
+    /// </summary>
+    public void ResetSmoothing()
+    {
+        Array.Clear(_prevGain, 0, _prevGain.Length);
     }
 
     /// <summary>
@@ -124,6 +169,10 @@ public sealed class SpectralSubtractor
         var output = new float[signal.Length];
         var normalisation = new float[signal.Length];
 
+        double sampleRate = 44100; // Standard sample rate for time constant calculations
+        double attackCoeff = CalculateSmoothingCoefficient(AttackMs, sampleRate, isAttack: true);
+        double releaseCoeff = CalculateSmoothingCoefficient(ReleaseMs, sampleRate, isAttack: false);
+
         for (int start = 0; start + _frameSize <= signal.Length; start += _hop)
         {
             var spec = Analyze(signal.Slice(start, _frameSize));
@@ -135,6 +184,7 @@ public sealed class SpectralSubtractor
                 double phase = spec[b].Phase;
 
                 double cleaned;
+                double currentGain = 1.0;
 
                 if (Mode == DenoiseMode.Wiener)
                 {
@@ -145,13 +195,15 @@ public sealed class SpectralSubtractor
 
                     // Avoid division by zero and negative SNR
                     double snr = signalPower > 1e-20 ? signalPower / noisePower : 0.0;
-                    double gain = snr / (snr + 1.0);
+                    currentGain = snr / (snr + 1.0);
 
-                    cleaned = mag * gain;
+                    cleaned = mag * currentGain;
                 }
                 else
                 {
                     // Classic spectral subtraction
+                    double rawGain = Math.Max(0, mag - OverSubtractionFactor * noiseProfile[b]) / mag;
+                    currentGain = Math.Max(0, rawGain);
                     cleaned = mag - OverSubtractionFactor * noiseProfile[b];
                 }
 
@@ -159,7 +211,24 @@ public sealed class SpectralSubtractor
                 double floor = SpectralFloor * mag;
                 if (cleaned < floor) cleaned = floor;
 
-                spec[b] = Complex.FromPolarCoordinates(cleaned, phase);
+                // Apply one-pole smoothing to gain
+                if (AttackMs > 0 || ReleaseMs > 0)
+                {
+                    // Apply smoothing based on whether gain is increasing or decreasing
+                    double targetGain = currentGain;
+                    double prev = _prevGain[b];
+                    double coeff = (targetGain > prev) ? attackCoeff : releaseCoeff;
+                    double smoothedGain = prev + coeff * (targetGain - prev);
+                    _prevGain[b] = smoothedGain;
+
+                    // Apply smoothed gain to magnitude
+                    spec[b] = Complex.FromPolarCoordinates(cleaned * smoothedGain, phase);
+                }
+                else
+                {
+                    spec[b] = Complex.FromPolarCoordinates(cleaned, phase);
+                }
+
                 if (b > 0 && b < bins - 1)
                     spec[_frameSize - b] = Complex.Conjugate(spec[b]);
             }
