@@ -184,11 +184,14 @@ static int Denoise(string inPath, string outPath, double noiseSeconds, int frame
             }
         }
 
-        // Process each channel independently
+        // Process each channel independently with progress reporting
+        var leftProgress = new Progress<double>(p => Console.WriteLine($"Left channel progress: {p:P0}"));
         Console.WriteLine("denoising left channel...");
-        var cleanedLeft = sub.Process(left, profile);
+        var cleanedLeft = sub.Process(left, profile, leftProgress);
+
+        var rightProgress = new Progress<double>(p => Console.WriteLine($"Right channel progress: {p:P0}"));
         Console.WriteLine("denoising right channel...");
-        var cleanedRight = sub.Process(right, profile);
+        var cleanedRight = sub.Process(right, profile, rightProgress);
 
         WavFile.WriteStereo(outPath, cleanedLeft, cleanedRight, sr);
 
@@ -253,7 +256,8 @@ static int Denoise(string inPath, string outPath, double noiseSeconds, int frame
             }
         }
 
-        var cleaned = sub.Process(samples, profile);
+        var monoProgress = new Progress<double>(p => Console.WriteLine($"Progress: {p:P0}"));
+        var cleaned = sub.Process(samples, profile, monoProgress);
         WavFile.WriteMono(outPath, cleaned, sr);
 
         Console.WriteLine($"wrote {outPath}");

@@ -160,7 +160,10 @@ public sealed class SpectralSubtractor
     /// Denoise a whole mono signal via overlap-add. Returns a new buffer the
     /// same length as the input.
     /// </summary>
-    public float[] Process(ReadOnlySpan<float> signal, double[] noiseProfile)
+    /// <param name="signal">Input signal</param>
+    /// <param name="noiseProfile">Noise magnitude profile</param>
+    /// <param name="progress">Optional progress reporter (fraction of frames processed)</param>
+    public float[] Process(ReadOnlySpan<float> signal, double[] noiseProfile, IProgress<double>? progress = null)
     {
         int bins = _frameSize / 2 + 1;
         if (noiseProfile.Length != bins)
@@ -172,6 +175,13 @@ public sealed class SpectralSubtractor
         double sampleRate = 44100; // Standard sample rate for time constant calculations
         double attackCoeff = CalculateSmoothingCoefficient(AttackMs, sampleRate, isAttack: true);
         double releaseCoeff = CalculateSmoothingCoefficient(ReleaseMs, sampleRate, isAttack: false);
+
+        // Determine total number of frames for progress reporting
+        int totalFrames = 0;
+        if (signal.Length >= _frameSize)
+            totalFrames = ((signal.Length - _frameSize) / _hop) + 1;
+
+        int processedFrames = 0;
 
         for (int start = 0; start + _frameSize <= signal.Length; start += _hop)
         {
@@ -239,6 +249,13 @@ public sealed class SpectralSubtractor
             {
                 output[start + i] += (float)(spec[i].Real * _window[i]);
                 normalisation[start + i] += (float)(_window[i] * _window[i]);
+            }
+
+            // Report progress
+            processedFrames++;
+            if (progress != null && totalFrames > 0)
+            {
+                progress.Report((double)processedFrames / totalFrames);
             }
         }
 
