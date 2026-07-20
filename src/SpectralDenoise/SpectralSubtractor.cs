@@ -18,12 +18,24 @@ public sealed class SpectralSubtractor
     private readonly int _hop;
     private readonly double[] _window;
 
-    /// <summary>Over-subtraction factor. 1.0 = plain Boll. Higher = more aggressive.</summary>
+    /// <summary>Over‑subtraction factor. 1.0 = plain Boll. Higher = more aggressive.</summary>
     public double Alpha { get; init; } = 2.0;
 
     /// <summary>Spectral floor. Keeps a fraction of the original magnitude to
     /// mask musical noise. Range 0..1.</summary>
     public double Beta { get; init; } = 0.02;
+
+    /// <summary>
+    /// Over‑subtraction factor. Multiplies the noise profile during subtraction.
+    /// Default = 1.0.
+    /// </summary>
+    public double OverSubtractionFactor { get; set; } = 1.0;
+
+    /// <summary>
+    /// Spectral floor. Minimum fraction of the original magnitude kept,
+    /// preventing musical‑noise zeros. Default = 0.01.
+    /// </summary>
+    public double SpectralFloor { get; set; } = 0.01;
 
     public SpectralSubtractor(int frameSize = 1024, int hop = 256)
     {
@@ -85,8 +97,9 @@ public sealed class SpectralSubtractor
                 double mag = spec[b].Magnitude;
                 double phase = spec[b].Phase;
 
-                double cleaned = mag - Alpha * noiseProfile[b];
-                double floor = Beta * mag;
+                // Use the new tuning properties
+                double cleaned = mag - OverSubtractionFactor * noiseProfile[b];
+                double floor = SpectralFloor * mag;
                 if (cleaned < floor) cleaned = floor;
 
                 spec[b] = Complex.FromPolarCoordinates(cleaned, phase);
