@@ -4,8 +4,18 @@ using System.Numerics;
 
 namespace SpectralDenoise.Tests
 {
-    public class FftTests
+    /// <summary>
+/// Unit tests for the Fast Fourier Transform (FFT) functionality in the SpectralDenoise library.
+/// Tests verify the correctness of forward and inverse FFT operations, including edge cases
+/// and specific frequency bin behaviors.
+/// </summary>
+public class FftTests
     {
+        /// <summary>
+        /// Tests that a real sine wave at an exact frequency bin produces a peak at that bin in the FFT output.
+        /// Creates a sine wave with frequency matching a specific FFT bin, computes the FFT, and verifies
+        /// that the magnitude at the expected bin is significantly larger than the theoretical minimum.
+        /// </summary>
         [Fact]
         public void Fft_RealSineAtExactBin_GivesPeakAtThatBin()
         {
@@ -32,6 +42,11 @@ namespace SpectralDenoise.Tests
             Assert.True(magnitude > 0.9 * length / 2.0, $"Expected peak at bin {peakBin} with magnitude > {0.9 * length / 2.0}, got {magnitude}");
         }
 
+        /// <summary>
+        /// Tests that a zero signal produces a zero spectrum after FFT transformation.
+        /// Verifies that the FFT of a signal containing only zeros results in all frequency components
+        /// having magnitudes close to zero, confirming proper handling of edge cases.
+        /// </summary>
         [Fact]
         public void Fft_ZeroSignal_ReturnsAllZeros()
         {
@@ -47,6 +62,12 @@ namespace SpectralDenoise.Tests
             }
         }
 
+        /// <summary>
+        /// Tests that applying forward FFT followed by inverse FFT returns the original signal.
+        /// Verifies the invertibility property of the FFT algorithm by generating a random signal,
+        /// applying FFT, then inverse FFT, and checking that the reconstructed signal matches
+        /// the original within a small tolerance.
+        /// </summary>
         [Fact]
         public void Fft_ForwardInverse_ReturnsOriginalSignal()
         {
