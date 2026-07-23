@@ -1,3 +1,5 @@
+using System;
+using System.Linq;
 using System.Numerics;
 
 namespace SpectralDenoise;
@@ -36,7 +38,9 @@ public static class SpectralSubtractorExtensions
         signal.CopyTo(output);
 
         // Process in-place on the output buffer
-        var result = subtractor.Process(output, noiseProfile);
+        // The underlying SpectralSubtractor.Process method works with Span<float> (or float[])
+        // and returns a new array; we ignore the return value because the processing is done in-place.
+        _ = subtractor.Process(output, noiseProfile);
 
         return output.Slice(0, signal.Length);
     }
@@ -49,12 +53,14 @@ public static class SpectralSubtractorExtensions
     /// <param name="noiseOnly">Noise-only sample to estimate profile from.</param>
     /// <param name="normalize">Whether to normalize the profile to a target RMS level (default: true).</param>
     /// <returns>A normalized noise profile suitable for use with <see cref="SpectralSubtractor.Process"/>.</returns>
-    /// <exception cref="ArgumentNullException">Thrown when <paramref name="noiseOnly"/> is null.</exception>
+    /// <exception cref="ArgumentNullException">Thrown when <paramref name="subtractor"/> is null.</exception>
     /// <exception cref="InvalidOperationException">Thrown when noise region is too short.</exception>
     public static double[] EstimateNormalizedNoiseProfile(this SpectralSubtractor subtractor, ReadOnlySpan<float> noiseOnly, bool normalize = true)
     {
         ArgumentNullException.ThrowIfNull(subtractor);
-        if (noiseOnly == null) throw new ArgumentNullException(nameof(noiseOnly));
+        // ReadOnlySpan<T> is a struct and cannot be null; we only need to ensure it has data.
+        if (noiseOnly.IsEmpty)
+            throw new ArgumentException("Noise sample cannot be empty.", nameof(noiseOnly));
 
         var profile = subtractor.EstimateNoiseProfile(noiseOnly);
 
@@ -89,7 +95,6 @@ public static class SpectralSubtractorExtensions
     public static float[] ProcessWithSilenceDetection(this SpectralSubtractor subtractor, ReadOnlySpan<float> signal, double[] noiseProfile, float silenceThreshold = 0.01f)
     {
         ArgumentNullException.ThrowIfNull(subtractor);
-        if (signal == null) throw new ArgumentNullException(nameof(signal));
         ArgumentNullException.ThrowIfNull(noiseProfile);
 
         if (silenceThreshold is < 0 or > 1)
