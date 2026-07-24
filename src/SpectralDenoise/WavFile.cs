@@ -16,22 +16,70 @@ public static class WavFile
     private const int MaxChannels = 8;
     private const long MaxAllowedSamples = 100_000_000; // ~400MB of floats, reasonable limit
 
+    /// <summary>
+    /// Maximum allowed file size for reading (100MB)
+    /// </summary>
+    private const long MaxFileSize = 100_000_000;
+
+    /// <summary>
+    /// Maximum allowed data chunk size in bytes (100MB)
+    /// </summary>
+    private const int MaxDataChunkSize = 100_000_000;
+
     private static void ValidateWav(AudioFileReader reader, string path)
     {
-        if (reader.WaveFormat.SampleRate < MinSampleRate || reader.WaveFormat.SampleRate > MaxSampleRate)
-            throw new InvalidDataException($"Unsupported sample rate: {reader.WaveFormat.SampleRate}");
+        ArgumentNullException.ThrowIfNull(path);
 
-        if (reader.WaveFormat.Channels < 1 || reader.WaveFormat.Channels > MaxChannels)
-            throw new InvalidDataException($"Unsupported channel count: {reader.WaveFormat.Channels}");
+        // Normalize and validate the path to prevent path traversal attacks
+        string normalizedPath = Path.GetFullPath(path);
+        string currentDir = Path.GetFullPath(".");
+        string rootDir = Path.GetFullPath("/");
 
+        if (!normalizedPath.StartsWith(currentDir, StringComparison.Ordinal) &&
+            !normalizedPath.StartsWith(rootDir, StringComparison.Ordinal))
+        {
+            throw new ArgumentException(
+                $"Path must be within the current directory or a subdirectory. Path: {path}",
+                nameof(path));
+        }
+
+        // Validate file exists and is not a directory
         var fileInfo = new FileInfo(path);
-        // WAV data length cannot exceed file size significantly (allowing for header overhead)
+        if (!fileInfo.Exists)
+            throw new FileNotFoundException("The specified WAV file was not found.", path);
+
+        if (fileInfo.Length > MaxFileSize)
+            throw new InvalidDataException("File size exceeds maximum allowed limit of 100MB.");
+
+        // Validate sample rate
+        if (reader.WaveFormat.SampleRate < MinSampleRate || reader.WaveFormat.SampleRate > MaxSampleRate)
+            throw new InvalidDataException(
+                $"Unsupported sample rate: {reader.WaveFormat.SampleRate}. Must be between {MinSampleRate}Hz and {MaxSampleRate}Hz.");
+
+        // Validate channel count
+        if (reader.WaveFormat.Channels < 1 || reader.WaveFormat.Channels > MaxChannels)
+            throw new InvalidDataException(
+                $"Unsupported channel count: {reader.WaveFormat.Channels}. Must be between 1 and {MaxChannels} channels.");
+
+        // Validate file size sanity (WAV data length cannot exceed file size significantly)
         if (reader.Length > fileInfo.Length + 1024 * 64)
-            throw new InvalidDataException("Declared WAV length exceeds file size.");
-        
+            throw new InvalidDataException(
+                "Declared WAV length exceeds file size by more than 64KB header overhead.");
+
+        // Validate RIFF header by checking the format
+        if (reader.WaveFormat.Encoding != WaveFormatEncoding.Pcm &&
+            reader.WaveFormat.Encoding != WaveFormatEncoding.IeeeFloat)
+            throw new InvalidDataException(
+                $"Unsupported WAV format: {reader.WaveFormat.Encoding}. Only PCM and IEEE float are supported.");
+
         // Additional sanity check for allocation size
         if (reader.Length / sizeof(float) > MaxAllowedSamples)
-            throw new InvalidDataException("File is too large.");
+            throw new InvalidDataException(
+                $"File is too large. Maximum allowed samples is {MaxAllowedSamples:N0} ({MaxAllowedSamples * sizeof(float):N0} bytes).");
+
+        // Validate data chunk size if available (NAudio should handle this, but we add extra protection)
+        if (reader.Length > MaxDataChunkSize)
+            throw new InvalidDataException("WAV data chunk size exceeds maximum allowed limit of 100MB.");
     }
 
     /// <summary>
@@ -42,14 +90,16 @@ public static class WavFile
     /// <param name="progress">Optional progress reporter</param>
     /// <returns>An enumerable that yields audio blocks as they are read</returns>
     /// <exception cref="ArgumentNullException">Thrown if path is null.</exception>
-    /// <exception cref="InvalidDataException">Thrown if WAV header is invalid.</exception>
+    /// <exception cref="ArgumentException">Thrown if path is empty or contains invalid characters.</exception>
+    /// <exception cref="FileNotFoundException">Thrown if the file does not exist.</exception>
+    /// <exception cref="InvalidDataException">Thrown if WAV header is invalid or file is malformed.</exception>
     public static IEnumerable<(float[] samples, int sampleRate, bool isLastBlock)> ReadMonoStream(string path, int blockSize = 8192, IProgress<double>? progress = null)
     {
         ArgumentNullException.ThrowIfNull(path);
-        
+
         using var reader = new AudioFileReader(path);
         ValidateWav(reader, path);
-        
+
         int sampleRate = reader.WaveFormat.SampleRate;
 
         // For mono files, read in blocks
@@ -115,14 +165,16 @@ public static class WavFile
     /// <param name="path">Path to the WAV file</param>
     /// <returns>An audio sample array and the sample rate.</returns>
     /// <exception cref="ArgumentNullException">Thrown if path is null.</exception>
-    /// <exception cref="InvalidDataException">Thrown if WAV header is invalid.</exception>
+    /// <exception cref="ArgumentException">Thrown if path is empty or contains invalid characters.</exception>
+    /// <exception cref="FileNotFoundException">Thrown if the file does not exist.</exception>
+    /// <exception cref="InvalidDataException">Thrown if WAV header is invalid or file is malformed.</exception>
     public static (float[] samples, int sampleRate) ReadMono(string path)
     {
         ArgumentNullException.ThrowIfNull(path);
-        
+
         using var reader = new AudioFileReader(path);
         ValidateWav(reader, path);
-        
+
         int sampleRate = reader.WaveFormat.SampleRate;
 
         // For mono files, read directly
@@ -137,8 +189,8 @@ public static class WavFile
         var interleaved = new List<float>();
         // Limit buffer size to avoid massive allocation based on potentially malicious header
         int channels = reader.WaveFormat.Channels;
-        var buffer = new float[Math.Min(reader.WaveFormat.SampleRate * channels, 100_000)]; 
-        
+        var buffer = new float[Math.Min(reader.WaveFormat.SampleRate * channels, 100_000)];
+
         int read;
         while ((read = reader.Read(buffer, 0, buffer.Length)) > 0)
             for (int i = 0; i < read; i++)
@@ -160,7 +212,7 @@ public static class WavFile
     {
         ArgumentNullException.ThrowIfNull(path);
         ArgumentNullException.ThrowIfNull(samples);
-        
+
         var format = WaveFormat.CreateIeeeFloatWaveFormat(sampleRate, 1);
         using var writer = new WaveFileWriter(path, format);
         writer.WriteSamples(samples, 0, samples.Length);
@@ -172,11 +224,13 @@ public static class WavFile
     /// <param name="path">Path to the WAV file</param>
     /// <returns>Left and right sample arrays and the sample rate.</returns>
     /// <exception cref="ArgumentNullException">Thrown if path is null.</exception>
-    /// <exception cref="InvalidDataException">Thrown if WAV header is invalid.</exception>
+    /// <exception cref="ArgumentException">Thrown if path is empty or contains invalid characters.</exception>
+    /// <exception cref="FileNotFoundException">Thrown if the file does not exist.</exception>
+    /// <exception cref="InvalidDataException">Thrown if WAV header is invalid, file is not stereo, or file is malformed.</exception>
     public static (float[] left, float[] right, int sampleRate) ReadStereo(string path)
     {
         ArgumentNullException.ThrowIfNull(path);
-        
+
         using var reader = new AudioFileReader(path);
         ValidateWav(reader, path);
 
@@ -187,7 +241,7 @@ public static class WavFile
         var interleaved = new List<float>();
         // Limit buffer size
         var buffer = new float[Math.Min(reader.WaveFormat.SampleRate * 2, 100_000)];
-        
+
         int read;
         while ((read = reader.Read(buffer, 0, buffer.Length)) > 0)
             for (int i = 0; i < read; i++)
@@ -211,7 +265,7 @@ public static class WavFile
         ArgumentNullException.ThrowIfNull(path);
         ArgumentNullException.ThrowIfNull(left);
         ArgumentNullException.ThrowIfNull(right);
-        
+
         if (left.Length != right.Length)
             throw new InvalidDataException("Left and right channel arrays must have the same length.");
 
