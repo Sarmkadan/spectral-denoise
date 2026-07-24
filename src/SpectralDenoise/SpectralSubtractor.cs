@@ -1,3 +1,4 @@
+using System;
 using System.Numerics;
 
 namespace SpectralDenoise;
@@ -53,7 +54,7 @@ public sealed class SpectralSubtractor : ISpectralProcessor
     /// <summary>
     /// Spectral floor. Minimum fraction of the original magnitude kept,
     /// preventing musical‑noise zeros. Default = 0.02.
-/// Range: 0..1.
+    /// Range: 0..1.
     /// </summary>
     public double SpectralFloor { get; set; } = 0.02;
 
@@ -192,6 +193,83 @@ public sealed class SpectralSubtractor : ISpectralProcessor
     {
         Array.Clear(_prevGain, 0, _prevGain.Length);
         _noiseProfile = null;
+    }
+
+    /// <summary>
+    /// State for streaming processing that maintains overlap buffers between frames.
+    /// </summary>
+    public sealed class StreamingState
+    {
+        internal int _frameSize;
+        internal int _hop;
+        internal double[] _window;
+        internal double[] _overlapBuffer;
+        internal Complex[] _fftBuffer;
+        internal int _overlapSamples;
+
+        /// <summary>
+        /// Initializes a new streaming state.
+        /// </summary>
+        /// <param name="frameSize">Frame size</param>
+        /// <param name="hop">Hop size</param>
+        /// <param name="window">Analysis window</param>
+        internal StreamingState(int frameSize, int hop, double[] window)
+        {
+            _frameSize = frameSize;
+            _hop = hop;
+            _window = window;
+            _overlapBuffer = new double[_hop];
+            _fftBuffer = new Complex[frameSize];
+            _overlapSamples = 0;
+        }
+
+        /// <summary>
+        /// Gets the number of samples currently in the overlap buffer.
+        /// </summary>
+        public int OverlapSamples => _overlapSamples;
+
+        /// <summary>
+        /// Gets the overlap buffer (read-only).
+        /// </summary>
+        public ReadOnlySpan<double> OverlapBuffer => _overlapBuffer.AsSpan(0, _overlapSamples);
+
+        /// <summary>
+        /// Resets the streaming state (clears overlap buffers).
+        /// </summary>
+        public void Reset()
+        {
+            Array.Clear(_overlapBuffer, 0, _overlapBuffer.Length);
+            _overlapSamples = 0;
+        }
+
+        /// <summary>
+        /// Gets the FFT buffer for processing.
+        /// </summary>
+        internal Complex[] FftBuffer => _fftBuffer;
+
+        /// <summary>
+        /// Gets the window function.
+        /// </summary>
+        internal double[] Window => _window;
+
+        /// <summary>
+        /// Gets the frame size.
+        /// </summary>
+        internal int FrameSize => _frameSize;
+
+        /// <summary>
+        /// Gets the hop size.
+        /// </summary>
+        internal int Hop => _hop;
+    }
+
+    /// <summary>
+    /// Creates a new streaming state for processing audio incrementally.
+    /// </summary>
+    /// <returns>A new streaming state instance</returns>
+    public StreamingState CreateStreamingState()
+    {
+        return new StreamingState(_frameSize, _hop, _window);
     }
 
     /// <summary>
@@ -367,6 +445,161 @@ public sealed class SpectralSubtractor : ISpectralProcessor
         }
 
         return output;
+    }
+
+    /// <summary>
+    /// Processes audio incrementally using a streaming state that maintains overlap buffers.
+    /// This allows processing of arbitrarily long audio streams without loading everything into memory.
+    /// </summary>
+    /// <param name="input">Input audio samples (can be shorter than frameSize)</param>
+    /// <param name="state">Streaming state from previous calls</param>
+    /// <param name="output">Output buffer to write processed samples to</param>
+    /// <param name="outputOffset">Starting offset in output buffer</param>
+    /// <param name="noiseProfile">Noise profile to use for denoising</param>
+    /// <param name="progress">Optional progress reporter</param>
+    /// <returns>The number of samples written to the output buffer</returns>
+    /// <exception cref="ArgumentNullException">Thrown when input, state, output, or noiseProfile is null</exception>
+    /// <exception cref="ArgumentException">Thrown when noise profile length doesn't match frame size</exception>
+    public int ProcessBlock(
+        ReadOnlySpan<float> input,
+        StreamingState state,
+        Span<float> output,
+        int outputOffset,
+        double[] noiseProfile,
+        IProgress<double>? progress = null)
+    {
+        if (input == null)
+            throw new ArgumentNullException(nameof(input));
+        if (state == null)
+            throw new ArgumentNullException(nameof(state));
+        if (output == null)
+            throw new ArgumentNullException(nameof(output));
+        if (noiseProfile == null)
+            throw new ArgumentNullException(nameof(noiseProfile));
+
+        int bins = _frameSize / 2 + 1;
+        if (noiseProfile.Length != bins)
+            throw new ArgumentException("Noise profile bin count does not match frame size.");
+
+        int outputSamplesWritten = 0;
+        int inputIndex = 0;
+
+        // Process input samples in chunks
+        while (inputIndex < input.Length)
+        {
+            // Fill the overlap buffer with new input samples
+            int samplesToCopy = Math.Min(state.Hop - state._overlapSamples, input.Length - inputIndex);
+            if (samplesToCopy > 0)
+            {
+                input.Slice(inputIndex, samplesToCopy).CopyTo(output.Slice(outputOffset + state._overlapSamples));
+                inputIndex += samplesToCopy;
+                state._overlapSamples += samplesToCopy;
+            }
+
+            // When we have a full frame, process it
+            if (state._overlapSamples >= state.Hop)
+            {
+                // Copy overlap buffer to FFT buffer with windowing
+                for (int i = 0; i < state.FrameSize; i++)
+                {
+                    int overlapIndex = i % state.Hop;
+                    state.FftBuffer[i] = new Complex(output[outputOffset + overlapIndex] * state.Window[i], 0.0);
+                }
+
+                // Perform FFT
+                Fft.Forward(state.FftBuffer);
+
+                // Apply denoising
+                for (int b = 0; b < bins; b++)
+                {
+                    double mag = state.FftBuffer[b].Magnitude;
+                    double phase = state.FftBuffer[b].Phase;
+
+                    double cleaned;
+                    double currentGain = 1.0;
+
+                    if (Mode == DenoiseMode.Wiener)
+                    {
+                        // Wiener filter
+                        double signalPower = mag * mag;
+                        double noisePower = noiseProfile[b] * noiseProfile[b];
+                        double snr = signalPower > 1e-20 ? signalPower / noisePower : 0.0;
+                        currentGain = snr / (snr + 1.0);
+                        cleaned = mag * currentGain;
+                    }
+                    else
+                    {
+                        // Classic spectral subtraction
+                        double rawGain = Math.Max(0, mag - OverSubtractionFactor * noiseProfile[b]) / mag;
+                        currentGain = Math.Max(0, rawGain);
+                        cleaned = mag - OverSubtractionFactor * noiseProfile[b];
+                    }
+
+                    // Apply spectral floor
+                    double floor = SpectralFloor * mag;
+                    if (cleaned < floor) cleaned = floor;
+
+                    // Apply gain smoothing if enabled
+                    if (AttackMs > 0 || ReleaseMs > 0)
+                    {
+                        double targetGain = currentGain;
+                        double prev = _prevGain[b];
+                        double coeff = (targetGain > prev) ? CalculateSmoothingCoefficient(AttackMs, 44100, isAttack: true) :
+                                                       CalculateSmoothingCoefficient(ReleaseMs, 44100, isAttack: false);
+                        double smoothedGain = prev + coeff * (targetGain - prev);
+                        _prevGain[b] = smoothedGain;
+                        cleaned *= smoothedGain;
+                    }
+
+                    state.FftBuffer[b] = Complex.FromPolarCoordinates(cleaned, phase);
+                    if (b > 0 && b < bins - 1)
+                        state.FftBuffer[state.FrameSize - b] = Complex.Conjugate(state.FftBuffer[b]);
+                }
+
+                // Inverse FFT
+                Fft.Inverse(state.FftBuffer);
+
+                // Accumulate output (overlap-add)
+                for (int i = 0; i < state.FrameSize; i++)
+                {
+                    int outputIndex = outputOffset + (state._overlapSamples - state.Hop) + i;
+                    if (outputIndex < output.Length)
+                    {
+                        output[outputIndex] += (float)(state.FftBuffer[i].Real * state.Window[i]);
+                    }
+                }
+
+                // Update overlap buffer for next frame
+                int samplesToKeep = state.FrameSize - state.Hop;
+                if (samplesToKeep > 0)
+                {
+                    // Shift remaining samples to beginning of overlap buffer
+                    for (int i = 0; i < samplesToKeep; i++)
+                    {
+                        state._overlapBuffer[i] = output[outputOffset + state.Hop + i];
+                    }
+                    state._overlapSamples = samplesToKeep;
+                }
+                else
+                {
+                    state._overlapSamples = 0;
+                }
+
+                outputSamplesWritten += state.Hop;
+            }
+            else
+            {
+                // Not enough samples yet, wait for more input
+                break;
+            }
+        }
+
+        if (progress != null && input.Length > 0)
+        {
+            progress.Report((double)inputIndex / input.Length);
+        }
+
+        return outputSamplesWritten;
     }
 
     private Complex[] Analyze(ReadOnlySpan<float> frame)
