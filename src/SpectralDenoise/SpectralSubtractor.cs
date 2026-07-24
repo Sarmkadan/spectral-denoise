@@ -39,11 +39,11 @@ public sealed class SpectralSubtractor : ISpectralProcessor
     private double[]? _noiseProfile;
 
     /// <summary>Over‑subtraction factor. 1.0 = plain Boll. Higher = more aggressive.</summary>
-    public double Alpha { get; init; } = 2.0;
+    public double Alpha { get; set; } = 2.0;
 
     /// <summary>Spectral floor. Keeps a fraction of the original magnitude to
     /// mask musical noise. Range 0..1.</summary>
-    public double Beta { get; init; } = 0.02;
+    public double Beta { get; set; } = 0.02;
 
     /// <summary>
     /// Over‑subtraction factor. Multiplies the noise profile during subtraction.
@@ -62,19 +62,19 @@ public sealed class SpectralSubtractor : ISpectralProcessor
     /// Denoising mode: SpectralSubtraction (classic) or Wiener (Wiener filter).
     /// Default = SpectralSubtraction (maintains backward compatibility).
     /// </summary>
-    public DenoiseMode Mode { get; init; } = DenoiseMode.SpectralSubtraction;
+    public DenoiseMode Mode { get; set; } = DenoiseMode.SpectralSubtraction;
 
     /// <summary>
     /// Attack time in milliseconds for gain smoothing. Controls how quickly gain increases.
     /// Default = 0 (no smoothing).
     /// </summary>
-    public double AttackMs { get; init; } = 0;
+    public double AttackMs { get; set; } = 0;
 
     /// <summary>
     /// Release time in milliseconds for gain smoothing. Controls how quickly gain decreases.
     /// Default = 0 (no smoothing).
     /// </summary>
-    public double ReleaseMs { get; init; } = 0;
+    public double ReleaseMs { get; set; } = 0;
 
     /// <summary>
     /// Gets the frame size (number of samples per analysis frame).
@@ -109,7 +109,7 @@ public sealed class SpectralSubtractor : ISpectralProcessor
     /// <summary>
     /// Gets the analysis window function.
     /// </summary>
-    public ReadOnlySpan<double> Window => _window;
+    public double[] Window => _window;
 
     /// <summary>
     /// Validates that the window/overlap combination satisfies the Constant Overlap-Add (COLA) condition.

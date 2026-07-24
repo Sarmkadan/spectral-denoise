@@ -1,4 +1,5 @@
 using System;
+using System.Globalization;
 using System.Numerics;
 using System.Text.Json;
 using System.Text.Json.Serialization;
@@ -14,18 +15,21 @@ public static class FftJsonExtensions
     {
         PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
         WriteIndented = false,
-        DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
+        DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
+        NumberHandling = JsonNumberHandling.AllowNamedFloatingPointLiterals
     };
 
     private static readonly JsonSerializerOptions _jsonOptionsIndented = new(JsonSerializerDefaults.Web)
     {
         PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
         WriteIndented = true,
-        DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
+        DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
+        NumberHandling = JsonNumberHandling.AllowNamedFloatingPointLiterals
     };
 
     /// <summary>
-    /// Serializes a <see cref="Complex"/> array to a JSON string.
+    /// Serializes a <see cref="Complex"/> array to a JSON string using culture-invariant formatting.
+    /// Replaces NaN and Infinity values with 0 to ensure valid JSON serialization.
     /// </summary>
     /// <param name="value">The <see cref="Complex"/> array to serialize.</param>
     /// <param name="indented">Whether to format the JSON with indentation for readability.</param>
@@ -35,7 +39,9 @@ public static class FftJsonExtensions
     {
         ArgumentNullException.ThrowIfNull(value);
 
-        return JsonSerializer.Serialize(value, indented ? _jsonOptionsIndented : _jsonOptions);
+        // Sanitize NaN and Infinity values to ensure valid JSON serialization
+        var sanitized = SanitizeNaNInfinity(value);
+        return JsonSerializer.Serialize(sanitized, indented ? _jsonOptionsIndented : _jsonOptions);
     }
 
     /// <summary>
@@ -79,5 +85,29 @@ public static class FftJsonExtensions
             value = null;
             return false;
         }
+    }
+
+    /// <summary>
+    /// Sanitizes a Complex array by replacing NaN and Infinity values with 0.
+    /// This ensures valid JSON serialization across different cultures and edge cases.
+    /// </summary>
+    /// <param name="array">The array to sanitize.</param>
+    /// <returns>A new array with sanitized values.</returns>
+    private static Complex[] SanitizeNaNInfinity(Complex[] array)
+    {
+        var result = new Complex[array.Length];
+        for (int i = 0; i < array.Length; i++)
+        {
+            double real = array[i].Real;
+            double imaginary = array[i].Imaginary;
+
+            // Replace NaN and Infinity with 0 to ensure valid JSON
+            real = double.IsNaN(real) || double.IsInfinity(real) ? 0.0 : real;
+            imaginary = double.IsNaN(imaginary) || double.IsInfinity(imaginary) ? 0.0 : imaginary;
+
+            result[i] = new Complex(real, imaginary);
+        }
+
+        return result;
     }
 }
