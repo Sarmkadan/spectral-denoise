@@ -112,6 +112,83 @@ public sealed class SpectralSubtractor : ISpectralProcessor
     public double[] Window => _window;
 
     /// <summary>
+    /// Validates the current configuration for common problems.
+    /// </summary>
+    /// <returns>A list of human-readable problem descriptions; empty if valid.</returns>
+    public IReadOnlyList<string> Validate()
+    {
+        var problems = new List<string>();
+
+        // Validate Alpha (over-subtraction factor)
+        // Should be >= 1.0 (1.0 = plain Boll, higher = more aggressive)
+        if (Alpha < 1.0)
+        {
+            problems.Add(
+                $"Alpha must be ≥ 1.0 (over-subtraction factor, got {Alpha:F4}).");
+        }
+
+        // Validate SpectralFloor (spectral floor)
+        // Should be in range [0, 1] (fraction of original magnitude to mask musical noise)
+        if (SpectralFloor is < 0.0 or > 1.0)
+        {
+            problems.Add(
+                $"SpectralFloor must be in range [0, 1] (spectral floor, got {SpectralFloor:F4}).");
+        }
+
+        // Validate frame size is a power of two
+        if (!IsPowerOfTwo(FrameSize))
+        {
+            problems.Add(
+                $"FrameSize must be a power of two (got {FrameSize}, which is not).");
+        }
+
+        // Validate frame size is within reasonable bounds
+        if (FrameSize < 128 || FrameSize > 8192)
+        {
+            problems.Add(
+                $"FrameSize should be between 128 and 8192 samples (got {FrameSize}).");
+        }
+
+        return problems;
+    }
+
+    /// <summary>
+    /// Checks whether the current configuration is valid.
+    /// </summary>
+    /// <returns>True if valid; otherwise false.</returns>
+    public bool IsValid() => Validate().Count == 0;
+
+    /// <summary>
+    /// Ensures that the current configuration is valid, throwing an <see cref="ArgumentException"/>
+    /// with a detailed message listing all problems if it is not.
+    /// </summary>
+    /// <exception cref="ArgumentException">Thrown when the configuration is invalid, containing a list of problems.</exception>
+    public void EnsureValid()
+    {
+        var problems = Validate();
+        if (problems.Count == 0)
+        {
+            return;
+        }
+
+        throw new ArgumentException(
+            $"SpectralSubtractor configuration is invalid:{Environment.NewLine} - {string.Join($"{Environment.NewLine} - ", problems)}");
+    }
+
+    /// <summary>
+    /// Checks if a number is a power of two.
+    /// </summary>
+    /// <param name="value">The value to check.</param>
+    /// <returns>True if the value is a power of two; otherwise false.</returns>
+    private static bool IsPowerOfTwo(int value)
+    {
+        if (value <= 0)
+            return false;
+
+        return (value & (value - 1)) == 0;
+    }
+
+    /// <summary>
     /// Validates that the window/overlap combination satisfies the Constant Overlap-Add (COLA) condition.
     /// If not, throws an exception with a detailed message about the issue and how to fix it.
     /// </summary>

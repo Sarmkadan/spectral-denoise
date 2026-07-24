@@ -49,6 +49,140 @@ The tool prints input vs output RMS so you get a rough before/after number.
   else.
 - No VAD, no proper evaluation (SNR/PESQ), just an eyeball + RMS.
 
+## Supported Configurations
+
+The pipeline has specific requirements for proper operation. Below is the compatibility matrix:
+
+| Parameter | Supported Values | Default | Notes |
+|-----------|------------------|---------|-------|
+| **Sample Rate** | 8 kHz, 16 kHz, 44.1 kHz, 48 kHz, 96 kHz, 192 kHz | 44.1 kHz | Validated by WAV header parsing. Higher rates improve high-frequency resolution. |
+| **Bit Depth** | 8-bit PCM, 16-bit PCM, 24-bit PCM, 32-bit PCM, IEEE Float | IEEE Float | Handled by NAudio library. IEEE Float provides best dynamic range. |
+| **Channels** | 1 (mono), 2 (stereo) | mono | Stereo files are downmixed to mono. Multi-channel (>2) not supported. |
+| **Frame Size** | Power of two: 128, 256, 512, 1024, 2048, 4096, 8192 | 1024 | Must be power of two. Larger sizes improve frequency resolution but increase latency. |
+| **Hop Size** | Must satisfy COLA with window: 32, 64, 128, 256, 512, 1024, 2048 | 256 | Hop size must satisfy Constant Overlap-Add (COLA) condition. Common ratios: hop = frameSize/4 or frameSize/2. |
+| **Window** | Hann periodic | Hann periodic | Ensures perfect reconstruction when COLA is satisfied. |
+| **Noise Estimation Duration** | 0.001 s - 10 s | 0.5 s | Minimum 1 frame of audio required. Longer durations provide more stable estimates but may capture non-stationary noise. |
+| **Minimum Clip Length** | > frameSize samples | N/A | Need at least one frame for processing. For 1024 frame size: minimum 1024 samples (23.2 ms at 44.1 kHz). |
+| **Channel Layout** | Mono, Stereo (interleaved) | mono | Multi-channel (>2) not supported. Stereo files are downmixed. |
+
+### Configuration Validation
+
+The `SpectralSubtractor` class validates configurations at construction time:
+
+- **Frame size**: Must be a power of two between 128 and 8192 samples
+- **Hop size**: Must satisfy the Constant Overlap-Add (COLA) condition with the window function for perfect reconstruction
+- **Alpha**: Must be ≥ 1.0 (over-subtraction factor)
+- **Beta**: Must be in range [0, 1] (spectral floor to mask musical noise)
+- **Sample rate**: Validated by the WAV file reader (8 kHz - 192 kHz)
+- **Signal length**: Must be sufficient for processing (≥ frameSize samples)
+
+The `SpectralSubtractorValidation` static class provides comprehensive validation methods:
+
+```csharp
+// Validate individual parameters
+SpectralSubtractorValidation.EnsureValidFrameSize(frameSize);
+SpectralSubtractorValidation.EnsureValidHopSize(hop, window);
+SpectralSubtractorValidation.EnsureValidSampleRate(sampleRate);
+SpectralSubtractorValidation.EnsureValidSignalLength(signalLength, frameSize);
+SpectralSubtractorValidation.EnsureValidAlpha(alpha);
+SpectralSubtractorValidation.EnsureValidBeta(beta);
+SpectralSubtractorValidation.EnsureValidNoiseEstimationDuration(durationSeconds, sampleRate);
+
+// Validate noise profiles
+noiseProfile.EnsureValidNoiseProfile();
+
+// Validate SpectralSubtractor instances
+subtractor.EnsureValid();
+```
+
+Each validation method provides detailed error messages listing all problems found.
+
+
+
+
+### Example Compatible Configurations
+
+```csharp
+// Standard voice processing (44.1 kHz, 1024 frame, 256 hop, 0.5s noise estimation)
+var subtractor1 = new SpectralSubtractor(frameSize: 1024, hop: 256)
+{
+    Alpha = 2.0,
+    Beta = 0.02
+};
+
+// High-resolution processing (48 kHz, 2048 frame, 512 hop, 1.0s noise estimation)
+var subtractor2 = new SpectralSubtractor(frameSize: 2048, hop: 512)
+{
+    Alpha = 3.0,
+    Beta = 0.01
+};
+
+// Low-latency processing (16 kHz, 512 frame, 128 hop, 0.25s noise estimation)
+var subtractor3 = new SpectralSubtractor(frameSize: 512, hop: 128)
+{
+    Alpha = 1.5,
+    Beta = 0.05
+};
+
+// Telephony processing (8 kHz, 256 frame, 64 hop, 0.2s noise estimation)
+var subtractor4 = new SpectralSubtractor(frameSize: 256, hop: 64)
+{
+    Alpha = 2.5,
+    Beta = 0.03
+};
+```
+
+### Incompatible Configurations
+
+```csharp
+// These will throw ArgumentException:
+var bad1 = new SpectralSubtractor(frameSize: 1000); // Not power of two
+var bad2 = new SpectralSubtractor(frameSize: 1024, hop: 200); // Doesn't satisfy COLA
+var bad3 = new SpectralSubtractor(frameSize: 1024) { Alpha = 0.5 }; // Alpha < 1.0
+var bad4 = new SpectralSubtractor(frameSize: 1024) { Beta = 1.5 }; // Beta > 1.0
+```
+
+### Incompatible Configurations
+
+```csharp
+// These will throw ArgumentException:
+var bad1 = new SpectralSubtractor(frameSize: 1000); // Not power of two
+var bad2 = new SpectralSubtractor(frameSize: 1024, hop: 200); // Doesn't satisfy COLA
+```
+
+## Recommended Settings
+
+### Voice Recordings (44.1 kHz)
+- **Frame size**: 1024 samples (23.2 ms)
+- **Hop size**: 256 samples (5.8 ms)
+- **Window**: Hann periodic (default)
+- **Noise estimation**: 0.5-1.0 seconds of leading silence
+- **Alpha** (over-subtraction): 2.0-4.0
+- **Beta** (spectral floor): 0.01-0.05
+
+### Telephony (8 kHz)
+- **Frame size**: 256 samples (32 ms)
+- **Hop size**: 64 samples (8 ms)
+- **Window**: Hann periodic
+- **Noise estimation**: 0.2-0.5 seconds
+- **Alpha**: 2.5-5.0 (more aggressive due to limited frequency resolution)
+- **Beta**: 0.02-0.08
+
+### High-Resolution Audio (96 kHz / 192 kHz)
+- **Frame size**: 2048-4096 samples (21.3-42.7 ms at 96 kHz)
+- **Hop size**: 512-1024 samples (5.3-10.7 ms at 96 kHz)
+- **Window**: Hann periodic
+- **Noise estimation**: 1.0-2.0 seconds
+- **Alpha**: 1.5-3.0 (less aggressive due to better frequency resolution)
+- **Beta**: 0.005-0.02
+
+### General Guidelines
+- **Frame size**: Choose based on desired time-frequency trade-off. Larger frames = better frequency resolution but worse time resolution.
+- **Hop size**: Typically frameSize/4 or frameSize/2 for COLA compliance with Hann windows.
+- **Alpha**: Start with 2.0 and adjust based on musical noise artifacts. Higher values remove more noise but increase artifacts.
+- **Beta**: Start with 0.02 and increase if you hear musical noise. Lower values preserve more signal but may leave residual noise.
+- **Noise estimation**: Use longer durations for stationary noise, shorter for non-stationary noise. The 0.5s default works well for most voice recordings with leading silence.
+
 ## TODO
 
 - [ ] Minimum-statistics / MMSE noise tracking instead of a single fixed profile
