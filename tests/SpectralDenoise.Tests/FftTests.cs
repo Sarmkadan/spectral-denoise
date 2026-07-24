@@ -5,11 +5,11 @@ using System.Numerics;
 namespace SpectralDenoise.Tests
 {
     /// <summary>
-/// Unit tests for the Fast Fourier Transform (FFT) functionality in the SpectralDenoise library.
-/// Tests verify the correctness of forward and inverse FFT operations, including edge cases
-/// and specific frequency bin behaviors.
-/// </summary>
-public class FftTests
+    /// Unit tests for the Fast Fourier Transform (FFT) functionality in the SpectralDenoise library.
+    /// Tests verify the correctness of forward and inverse FFT operations, including edge cases
+    /// and specific frequency bin behaviors.
+    /// </summary>
+    public class FftTests
     {
         /// <summary>
         /// Tests that a real sine wave at an exact frequency bin produces a peak at that bin in the FFT output.
@@ -91,6 +91,61 @@ public class FftTests
             {
                 Assert.Equal(original[i].Real, workingCopy[i].Real, 5);
             }
+        }
+
+        /// <summary>
+        /// Tests that providing a non-power-of-two length throws an ArgumentException.
+        /// Verifies that the FFT algorithm properly rejects invalid input sizes that cannot be processed by the radix-2 algorithm.
+        /// </summary>
+        [Fact]
+        public void Fft_NonPowerOfTwoLength_ThrowsArgumentException()
+        {
+            // Test various non-power-of-two lengths
+            int[] nonPowerOfTwoLengths = { 1000, 3, 5, 6, 7, 9, 15, 17, 100, 101 };
+
+            foreach (int length in nonPowerOfTwoLengths)
+            {
+                Complex[] buffer = new Complex[length];
+
+                var exception = Assert.Throws<ArgumentException>(() => Fft.Forward(buffer));
+                Assert.Contains("power of two", exception.Message, StringComparison.OrdinalIgnoreCase);
+                Assert.Contains(length.ToString(), exception.Message);
+            }
+        }
+
+        /// <summary>
+        /// Tests that providing a power-of-two length of 1 works correctly.
+        /// Verifies edge case handling for the smallest valid FFT size.
+        /// </summary>
+        [Fact]
+        public void Fft_LengthOne_PowerOfTwoWorks()
+        {
+            // Length 1 is technically a power of two (2^0)
+            Complex[] signal = { new Complex(42.0, 0.0) };
+
+            // Should not throw
+            Fft.Forward(signal);
+            Fft.Inverse(signal);
+
+            // Result should be the same (within floating point tolerance)
+            Assert.Equal(42.0, signal[0].Real, 10);
+        }
+
+        /// <summary>
+        /// Tests that providing a power-of-two length of 2 works correctly.
+        /// Verifies the smallest non-trivial power-of-two case.
+        /// </summary>
+        [Fact]
+        public void Fft_LengthTwo_PowerOfTwoWorks()
+        {
+            Complex[] signal = { new Complex(1.0, 0.0), new Complex(2.0, 0.0) };
+
+            // Should not throw
+            Fft.Forward(signal);
+
+            // For length 2, the FFT should swap the values
+            Assert.Equal(3.0, signal[0].Real, 10);
+            Assert.Equal(-1.0, signal[1].Real, 10);
         }
     }
 }
