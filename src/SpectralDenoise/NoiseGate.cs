@@ -1,11 +1,11 @@
 namespace SpectralDenoise;
 
 /// <summary>
-/// A simple time-domain noise gate that complements spectral subtraction.
+/// A time-domain noise gate that complements spectral subtraction with configurable attack and release smoothing.
 ///
-/// The gate applies an envelope follower with configurable attack/release times.
-/// When the input signal level is below the threshold (in dB), the gain is
-/// smoothly reduced to 0. When above threshold, the gain is 1.
+/// The gate applies exponential envelope smoothing to prevent audible clicks at gate transitions.
+/// When the input signal level is below the threshold (in dB), the gain is smoothly reduced to 0.
+/// When above threshold, the gain is smoothly increased to 1.
 /// </summary>
 public sealed class NoiseGate : IAudioProcessor
 {
@@ -17,13 +17,23 @@ public sealed class NoiseGate : IAudioProcessor
     /// <summary>
     /// Creates a new noise gate.
     /// </summary>
-    /// <param name="sampleRate">Audio sample rate in Hz</param>
+    /// <param name="sampleRate">Audio sample rate in Hz (must be positive)</param>
     /// <param name="thresholdDb">Threshold in dB below which the gate closes (default: -45 dB)</param>
-    /// <param name="attackMs">Attack time in milliseconds (time to open the gate, default: 5 ms)</param>
-    /// <param name="releaseMs">Release time in milliseconds (time to close the gate, default: 100 ms)</param>
+    /// <param name="attackMs">Attack time in milliseconds (time to open the gate, default: 5 ms).
+    /// Must be in range [0.1, 1000] ms.</param>
+    /// <param name="releaseMs">Release time in milliseconds (time to close the gate, default: 100 ms).
+    /// Must be in range [1, 5000] ms.</param>
+    /// <exception cref="ArgumentOutOfRangeException">Thrown when sampleRate is not positive or attackMs/releaseMs are out of range.</exception>
     public NoiseGate(int sampleRate, float thresholdDb = -45f, float attackMs = 5f, float releaseMs = 100f)
     {
         ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(sampleRate, 0);
+
+        ArgumentOutOfRangeException.ThrowIfLessThan(attackMs, 0.1f);
+        ArgumentOutOfRangeException.ThrowIfGreaterThan(attackMs, 1000f);
+
+        ArgumentOutOfRangeException.ThrowIfLessThan(releaseMs, 1f);
+        ArgumentOutOfRangeException.ThrowIfGreaterThan(releaseMs, 5000f);
+
         _thresholdDb = thresholdDb;
 
         // Convert times to coefficients
@@ -63,7 +73,7 @@ public sealed class NoiseGate : IAudioProcessor
             // Apply attack/release smoothing
             // Use faster coefficient based on whether we're opening or closing
             float coeff = desiredGain > _currentGain ? _attackCoeff : _releaseCoeff;
-            _currentGain = desiredGain * coeff + _currentGain * (1.0f - coeff);
+            _currentGain = desiredGain + _currentGain * (1.0f - coeff);
 
             // Apply gain to output
             output[i] = sample * _currentGain;
@@ -83,6 +93,9 @@ public sealed class NoiseGate : IAudioProcessor
     /// <summary>
     /// Calculate smoothing coefficient from time in milliseconds.
     /// </summary>
+    /// <param name="timeMs">Time constant in milliseconds</param>
+    /// <param name="sampleRate">Audio sample rate in Hz</param>
+    /// <returns>Exponential smoothing coefficient</returns>
     private static float CalculateCoefficient(float timeMs, int sampleRate)
     {
         // Exponential smoothing: coeff = exp(-1.0 / (time * sampleRate / 1000))
@@ -94,6 +107,8 @@ public sealed class NoiseGate : IAudioProcessor
     /// <summary>
     /// Convert decibels to linear amplitude.
     /// </summary>
+    /// <param name="db">Decibel value</param>
+    /// <returns>Linear amplitude</returns>
     private static float DecibelsToLinear(float db)
     {
         return (float)Math.Pow(10.0, db / 20.0);
