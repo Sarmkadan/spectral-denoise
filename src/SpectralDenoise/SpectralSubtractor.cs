@@ -264,6 +264,17 @@ public sealed class SpectralSubtractor : ISpectralProcessor
 
         // Pre-compute normalization array for perfect reconstruction
         _normalization = WindowFunctions.ComputeWindowSumSquared(_window, _hop, 1024 * 10);
+
+        // Validate configuration after initialization
+        EnsureValid();
+    }
+
+    /// <summary>
+    /// Called after JSON deserialization to validate the untrusted input.
+    /// </summary>
+    [JsonConstructor]
+    private SpectralSubtractor()
+    {
     }
 
     /// <summary>

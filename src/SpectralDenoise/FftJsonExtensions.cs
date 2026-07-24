@@ -50,13 +50,22 @@ public static class FftJsonExtensions
     /// <param name="json">The JSON string to deserialize.</param>
     /// <returns>The deserialized <see cref="Complex"/> array, or null if the JSON is invalid.</returns>
     /// <exception cref="ArgumentException">Thrown when <paramref name="json"/> is null or empty.</exception>
+    /// <exception cref="ArgumentException">Thrown when the deserialized array contains invalid values.</exception>
     public static Complex[]? FromJson(string json)
     {
         ArgumentException.ThrowIfNullOrEmpty(json);
 
         try
         {
-            return JsonSerializer.Deserialize<Complex[]>(json, _jsonOptions);
+            var array = JsonSerializer.Deserialize<Complex[]>(json, _jsonOptions);
+
+            // Validate the deserialized array
+            if (array is not null)
+            {
+                array.EnsureValidComplexArray();
+            }
+
+            return array;
         }
         catch (JsonException)
         {
@@ -78,6 +87,13 @@ public static class FftJsonExtensions
         try
         {
             value = JsonSerializer.Deserialize<Complex[]>(json, _jsonOptions);
+
+            // Validate the deserialized array
+            if (value is not null)
+            {
+                value.EnsureValidComplexArray();
+            }
+
             return true;
         }
         catch (JsonException)
@@ -109,5 +125,48 @@ public static class FftJsonExtensions
         }
 
         return result;
+    }
+}
+
+/// <summary>
+/// Provides validation extensions for Complex arrays.
+/// </summary>
+internal static class ComplexArrayValidation
+{
+    /// <summary>
+    /// Validates that a Complex array is suitable for FFT processing.
+    /// Ensures the array is not null, not empty, and all values are valid numbers.
+    /// </summary>
+    /// <param name="array">The array to validate.</param>
+    /// <exception cref="ArgumentNullException">Thrown when array is null.</exception>
+    /// <exception cref="ArgumentException">Thrown when array is empty or contains invalid values.</exception>
+    public static void EnsureValidComplexArray(this Complex[] array)
+    {
+        ArgumentNullException.ThrowIfNull(array);
+
+        if (array.Length == 0)
+        {
+            throw new ArgumentException("Complex array cannot be empty.", nameof(array));
+        }
+
+        // Validate each element
+        for (int i = 0; i < array.Length; i++)
+        {
+            if (double.IsNaN(array[i].Real) || double.IsInfinity(array[i].Real))
+            {
+                throw new ArgumentException(
+                    ValidationMessages.FormatCollectionError(nameof(array), i,
+                    $"must have valid real component (got {array[i].Real})."),
+                    nameof(array));
+            }
+
+            if (double.IsNaN(array[i].Imaginary) || double.IsInfinity(array[i].Imaginary))
+            {
+                throw new ArgumentException(
+                    ValidationMessages.FormatCollectionError(nameof(array), i,
+                    $"must have valid imaginary component (got {array[i].Imaginary})."),
+                    nameof(array));
+            }
+        }
     }
 }

@@ -1,3 +1,4 @@
+using System;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using System.Text.Json.Serialization.Metadata;
@@ -70,7 +71,10 @@ public sealed class NoiseProfile
     /// This constructor is for JSON deserialization only.
     /// </summary>
     [JsonConstructor]
-    private NoiseProfile() { }
+    private NoiseProfile()
+    {
+        // Properties will be set by JSON deserializer
+    }
 
     /// <summary>
     /// Creates a noise profile from a SpectralSubtractor's noise estimation.
@@ -112,15 +116,21 @@ public sealed class NoiseProfile
     /// <returns>The deserialized NoiseProfile instance.</returns>
     /// <exception cref="ArgumentNullException">Thrown when json is null.</exception>
     /// <exception cref="JsonException">Thrown when the JSON is invalid or cannot be deserialized.</exception>
+    /// <exception cref="ArgumentException">Thrown when the deserialized profile contains invalid values.</exception>
     public static NoiseProfile FromJson(string json)
     {
         ArgumentNullException.ThrowIfNull(json);
 
-        return JsonSerializer.Deserialize<NoiseProfile>(json, new JsonSerializerOptions(JsonSerializerDefaults.Web)
+        var profile = JsonSerializer.Deserialize<NoiseProfile>(json, new JsonSerializerOptions(JsonSerializerDefaults.Web)
         {
             PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
             TypeInfoResolver = new DefaultJsonTypeInfoResolver()
-        }) ?? throw new JsonException("Deserialization returned null.");
+        });
+
+        // Validate the deserialized profile
+        profile?.EnsureValid();
+
+        return profile ?? throw new JsonException("Deserialization returned null.");
     }
 
     /// <summary>
@@ -128,7 +138,7 @@ public sealed class NoiseProfile
     /// </summary>
     /// <param name="json">The JSON string to deserialize.</param>
     /// <param name="profile">Receives the deserialized instance if successful.</param>
-    /// <returns>True if deserialization succeeded; otherwise, false.</returns>
+    /// <returns>True if deserialization succeeded and validation passed; otherwise, false.</returns>
     /// <exception cref="ArgumentNullException">Thrown when json is null.</exception>
     public static bool TryFromJson(string json, out NoiseProfile? profile)
     {
@@ -141,9 +151,21 @@ public sealed class NoiseProfile
                 PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
                 TypeInfoResolver = new DefaultJsonTypeInfoResolver()
             });
+
+            // Validate the deserialized profile
+            if (profile is not null)
+            {
+                profile.EnsureValid();
+            }
+
             return profile is not null;
         }
-        catch
+        catch (JsonException)
+        {
+            profile = null;
+            return false;
+        }
+        catch (ArgumentException)
         {
             profile = null;
             return false;
@@ -185,5 +207,62 @@ public sealed class NoiseProfile
     {
         ArgumentNullException.ThrowIfNull(subtractor);
         Validate(subtractor.FrameSize, subtractor.FrameSize, subtractor.Hop);
+    }
+
+    /// <summary>
+    /// Ensures that the noise profile is valid for use, throwing detailed exceptions if not.
+    /// This method is called automatically after deserialization to validate the untrusted input.
+    /// </summary>
+    /// <exception cref="ArgumentException">Thrown when the noise profile contains invalid values.</exception>
+    public void EnsureValid()
+    {
+        // Validate array lengths
+        if (Magnitudes is null)
+        {
+            throw new ArgumentException("Magnitudes array cannot be null.");
+        }
+
+        if (Magnitudes.Length == 0)
+        {
+            throw new ArgumentException("Magnitudes array cannot be empty.");
+        }
+
+        // Validate numeric fields
+        SpectralSubtractorValidation.EnsureValidSampleRate(SampleRate);
+        SpectralSubtractorValidation.EnsureValidFrameSize(FrameSize);
+        SpectralSubtractorValidation.EnsureValidFrameSize(Hop);
+
+        // Validate that magnitudes array has correct length for FFT processing
+        // For real FFT, we get frameSize/2 + 1 frequency bins
+        int expectedMagnitudeLength = FrameSize / 2 + 1;
+        if (Magnitudes.Length != expectedMagnitudeLength)
+        {
+            throw new ArgumentException(
+                $"Magnitudes array length must be {expectedMagnitudeLength} for frame size {FrameSize} " +
+                $"(got {Magnitudes.Length}).");
+        }
+
+        // Validate that all magnitude values are non-negative
+        for (int i = 0; i < Magnitudes.Length; i++)
+        {
+            if (double.IsNaN(Magnitudes[i]))
+            {
+                throw new ArgumentException(
+                    ValidationMessages.FormatCollectionError(nameof(Magnitudes), i, "must not be NaN."));
+            }
+
+            if (double.IsInfinity(Magnitudes[i]))
+            {
+                throw new ArgumentException(
+                    ValidationMessages.FormatCollectionError(nameof(Magnitudes), i, "must not be infinite."));
+            }
+
+            if (Magnitudes[i] < 0.0)
+            {
+                throw new ArgumentException(
+                    ValidationMessages.FormatCollectionError(nameof(Magnitudes), i,
+                    $"must not be negative (got {Magnitudes[i]})."));
+            }
+        }
     }
 }
