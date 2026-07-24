@@ -34,6 +34,7 @@ public sealed class SpectralSubtractor
     private readonly int _hop;
     private readonly double[] _window;
     private readonly double[] _prevGain;
+    private readonly double[] _normalization;
 
     /// <summary>Over‑subtraction factor. 1.0 = plain Boll. Higher = more aggressive.</summary>
     public double Alpha { get; init; } = 2.0;
@@ -81,12 +82,58 @@ public sealed class SpectralSubtractor
     /// <summary>
     /// Gets the hop size (number of samples between analysis frames).
     /// </summary>
-    public int Hop => _hop;
+    public int Hop
+    {
+        get => _hop;
+        init
+        {
+            ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(value, 0);
+            if (_frameSize != 0) // Only validate if frameSize has been set (in constructor)
+            {
+                if (!WindowFunctions.SatisfiesCola(_window, value))
+                {
+                    throw new ArgumentException(
+                        $"Hop size {value} does not satisfy the Constant Overlap-Add (COLA) condition " +
+                        $"with the current window. The sum of squared window values should be approximately " +
+                        $"equal to the hop size for perfect reconstruction. " +
+                        $"Use a periodic window (e.g., WindowFunctions.HannPeriodic(frameSize)) and ensure hop size is compatible. " +
+                        $"Common COLA-compatible combinations: hop = frameSize/4 with periodic Hann, hop = frameSize/2 with periodic Hann.");
+                }
+            }
+            _hop = value;
+        }
+    }
 
     /// <summary>
     /// Gets the analysis window function.
     /// </summary>
     public ReadOnlySpan<double> Window => _window;
+
+    /// <summary>
+    /// Validates that the window/overlap combination satisfies the Constant Overlap-Add (COLA) condition.
+    /// If not, throws an exception with a detailed message about the issue and how to fix it.
+    /// </summary>
+    /// <param name="window">The window function</param>
+    /// <param name="hop">Hop size</param>
+    /// <exception cref="ArgumentException">Thrown when COLA condition is not satisfied</exception>
+    private static void ValidateCola(ReadOnlySpan<double> window, int hop)
+    {
+        if (!WindowFunctions.SatisfiesCola(window, hop))
+        {
+            double sum = 0.0;
+            for (int i = 0; i < window.Length; i++)
+            {
+                sum += window[i] * window[i];
+            }
+
+            throw new ArgumentException(
+                $"Window/overlap combination does not satisfy the Constant Overlap-Add (COLA) condition. " +
+                $"The sum of squared window values is {sum:F6}, but should be approximately {hop} for perfect reconstruction. " +
+                $"This causes amplitude modulation artifacts in the output. " +
+                $"Use a periodic window (e.g., WindowFunctions.HannPeriodic(frameSize)) and ensure hop size is compatible. " +
+                $"Common COLA-compatible combinations: hop = frameSize/4 with periodic Hann, hop = frameSize/2 with periodic Hann.");
+        }
+    }
 
     /// <summary>
     /// Calculates the one-pole smoothing coefficient from time constant in milliseconds.
@@ -110,14 +157,31 @@ public sealed class SpectralSubtractor
         return coeff;
     }
 
+    /// <summary>
+    /// Initializes a new instance of the <see cref="SpectralSubtractor"/> class.
+    /// </summary>
+    /// <param name="frameSize">Frame size (must be a power of two).</param>
+    /// <param name="hop">Hop size (number of samples between frames).</param>
+    /// <exception cref="ArgumentException">Thrown when frameSize is not a power of two or when window/overlap combination violates COLA.</exception>
     public SpectralSubtractor(int frameSize = 1024, int hop = 256)
     {
         if ((frameSize & (frameSize - 1)) != 0)
             throw new ArgumentException("frameSize must be a power of two.", nameof(frameSize));
+
+        if (hop <= 0)
+            throw new ArgumentOutOfRangeException(nameof(hop), "Hop must be positive.");
+
         _frameSize = frameSize;
-        _hop = hop;
-        _window = WindowFunctions.Hann(frameSize);
+        _window = WindowFunctions.HannPeriodic(frameSize);
         _prevGain = new double[frameSize / 2 + 1];
+
+        // Validate COLA condition
+        ValidateCola(_window, hop);
+
+        _hop = hop;
+
+        // Pre-compute normalization array for perfect reconstruction
+        _normalization = WindowFunctions.ComputeWindowSumSquared(_window, _hop, 1024 * 10);
     }
 
     /// <summary>
@@ -164,6 +228,7 @@ public sealed class SpectralSubtractor
     /// <param name="signal">Input signal</param>
     /// <param name="noiseProfile">Noise magnitude profile</param>
     /// <param name="progress">Optional progress reporter (fraction of frames processed)</param>
+    /// <exception cref="ArgumentException">Thrown when noise profile length doesn't match frame size.</exception>
     public float[] Process(ReadOnlySpan<float> signal, double[] noiseProfile, IProgress<double>? progress = null)
     {
         int bins = _frameSize / 2 + 1;
@@ -171,7 +236,6 @@ public sealed class SpectralSubtractor
             throw new ArgumentException("Noise profile bin count does not match frame size.");
 
         var output = new float[signal.Length];
-        var normalisation = new float[signal.Length];
 
         double sampleRate = 44100; // Standard sample rate for time constant calculations
         double attackCoeff = CalculateSmoothingCoefficient(AttackMs, sampleRate, isAttack: true);
@@ -249,7 +313,6 @@ public sealed class SpectralSubtractor
             for (int i = 0; i < _frameSize; i++)
             {
                 output[start + i] += (float)(spec[i].Real * _window[i]);
-                normalisation[start + i] += (float)(_window[i] * _window[i]);
             }
 
             // Report progress
@@ -260,10 +323,16 @@ public sealed class SpectralSubtractor
             }
         }
 
-        // undo the analysis+synthesis window weighting
+        // undo the analysis+synthesis window weighting using pre-computed normalization
+        // This ensures perfect reconstruction when COLA is satisfied
         for (int i = 0; i < output.Length; i++)
-            if (normalisation[i] > 1e-6f)
-                output[i] /= normalisation[i];
+        {
+            // Use the pre-computed normalization value for this position
+            // If we're beyond the pre-computed array, compute it on the fly
+            double norm = i < _normalization.Length ? _normalization[i] : WindowFunctions.ComputeWindowSumSquared(_window, _hop, 1)[i];
+            if (norm > 1e-6)
+                output[i] /= (float)norm;
+        }
 
         return output;
     }

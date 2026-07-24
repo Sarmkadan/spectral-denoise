@@ -12,6 +12,9 @@ namespace SpectralDenoise.Tests
         private const int FrameSize = 1024;
         private const int Hop = 256;
 
+        // Use periodic window for COLA compatibility
+        private static readonly double[] Window = WindowFunctions.HannPeriodic(FrameSize);
+
         private static float[] GenerateSine(int length, double frequency = 1000.0)
         {
             var signal = new float[length];
