@@ -1,3 +1,4 @@
+using System;
 using System.Numerics;
 
 namespace SpectralDenoise;
@@ -11,24 +12,43 @@ namespace SpectralDenoise;
 /// </summary>
 public static class Fft
 {
+    private const int MaxLength = 1 << 20; // 2^20
+
     /// <summary>
     /// Computes the forward FFT (frequency spectrum) in-place.
     /// </summary>
     /// <param name="buffer">Input signal to transform. Must have a power-of-two length.</param>
     /// <exception cref="ArgumentNullException">Thrown when <paramref name="buffer"/> is <see langword="null"/>.</exception>
-    /// <exception cref="ArgumentException">Thrown when <paramref name="buffer"/>.Length is not a power of two.</exception>
+    /// <exception cref="ArgumentException">Thrown when <paramref name="buffer"/>.Length is not a power of two or exceeds the maximum length.</exception>
     public static void Forward(Complex[] buffer)
-        => Transform(buffer, invert: false);
+    {
+        ArgumentNullException.ThrowIfNull(buffer);
+        if (buffer.Length == 0)
+            throw new ArgumentException("Buffer cannot be empty.", nameof(buffer));
+        if ((buffer.Length & (buffer.Length - 1)) != 0)
+            throw new ArgumentException($"FFT length must be a power of two, got {buffer.Length}.", nameof(buffer));
+        if (buffer.Length > MaxLength)
+            throw new ArgumentException($"FFT length exceeds the maximum length of {MaxLength}.", nameof(buffer));
+
+        Transform(buffer, invert: false);
+    }
 
     /// <summary>
     /// Computes the inverse FFT (time-domain signal) in-place and normalizes by 1/N.
     /// </summary>
     /// <param name="buffer">Frequency-domain signal to transform back to time domain. Must have a power-of-two length.</param>
     /// <exception cref="ArgumentNullException">Thrown when <paramref name="buffer"/> is <see langword="null"/>.</exception>
-    /// <exception cref="ArgumentException">Thrown when <paramref name="buffer"/>.Length is not a power of two.</exception>
+    /// <exception cref="ArgumentException">Thrown when <paramref name="buffer"/>.Length is not a power of two or exceeds the maximum length.</exception>
     public static void Inverse(Complex[] buffer)
     {
         ArgumentNullException.ThrowIfNull(buffer);
+        if (buffer.Length == 0)
+            throw new ArgumentException("Buffer cannot be empty.", nameof(buffer));
+        if ((buffer.Length & (buffer.Length - 1)) != 0)
+            throw new ArgumentException($"FFT length must be a power of two, got {buffer.Length}.", nameof(buffer));
+        if (buffer.Length > MaxLength)
+            throw new ArgumentException($"FFT length exceeds the maximum length of {MaxLength}.", nameof(buffer));
+
         Transform(buffer, invert: true);
 
         // Normalise
@@ -42,7 +62,7 @@ public static class Fft
     /// <param name="a">Input/output buffer. Must have a power-of-two length.</param>
     /// <param name="invert">Whether to compute forward (false) or inverse (true) transform.</param>
     /// <exception cref="ArgumentNullException">Thrown when <paramref name="a"/> is <see langword="null"/>.</exception>
-    /// <exception cref="ArgumentException">Thrown when <paramref name="a"/>.Length is not a power of two.</exception>
+    /// <exception cref="ArgumentException">Thrown when <paramref name="a"/>.Length is not a power of two or exceeds the maximum length.</exception>
     private static void Transform(Complex[] a, bool invert)
     {
         ArgumentNullException.ThrowIfNull(a);
@@ -52,7 +72,10 @@ public static class Fft
             throw new ArgumentException("Buffer cannot be empty.", nameof(a));
 
         if ((n & (n - 1)) != 0)
-            throw new ArgumentException($"FFT length must be a power of two, got {n}.");
+            throw new ArgumentException($"FFT length must be a power of two, got {n}.", nameof(a));
+
+        if (n > MaxLength)
+            throw new ArgumentException($"FFT length exceeds the maximum length of {MaxLength}.", nameof(a));
 
         // Bit-reversal permutation
         for (int i = 1, j = 0; i < n; i++)
