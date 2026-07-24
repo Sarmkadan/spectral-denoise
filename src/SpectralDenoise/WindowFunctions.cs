@@ -5,8 +5,15 @@ public static class WindowFunctions
     /// <summary>
     /// Symmetric Hann window (periodic = false).
     /// </summary>
+    /// <param name="size">Window size (must be positive)</param>
+    /// <param name="periodic">Whether to use periodic variant</param>
+    /// <returns>Window function of length size</returns>
+    /// <exception cref="ArgumentException">Thrown when size is not positive</exception>
     public static double[] Hann(int size, bool periodic = false)
     {
+        if (size <= 0)
+            throw new ArgumentException("Size must be positive.", nameof(size));
+
         var w = new double[size];
         double period = periodic ? size : size - 1;
         for (int i = 0; i < size; i++)
@@ -18,8 +25,16 @@ public static class WindowFunctions
     /// Periodic Hann window. Periodic (not symmetric) variant is the right one
     /// for overlap-add STFT so that the squared windows sum to a constant.
     /// </summary>
+    /// <param name="size">Window size (must be at least 4)</param>
+    /// <returns>Periodic Hann window</returns>
+    /// <exception cref="ArgumentException">Thrown when size is not positive or less than 4</exception>
     public static double[] HannPeriodic(int size)
     {
+        if (size <= 0)
+            throw new ArgumentException("Size must be positive.", nameof(size));
+        if (size < 4)
+            throw new ArgumentException("Size must be at least 4 for periodic Hann window.", nameof(size));
+
         return NormalizeForCola(Hann(size, periodic: true), size / 4);
     }
 
@@ -97,6 +112,7 @@ public static class WindowFunctions
     /// </summary>
     /// <param name="window">The window function</param>
     /// <param name="hop">Hop size</param>
+    /// <param name="outputLength">Output length</param>
     /// <returns>The sum of squared window values</returns>
     public static double[] ComputeWindowSumSquared(ReadOnlySpan<double> window, int hop, int outputLength)
     {
