@@ -28,13 +28,14 @@ public enum DenoiseMode
 /// This is deliberately the textbook version. It works but it hisses and
 /// leaves "musical noise" all over the place - see README.
 /// </summary>
-public sealed class SpectralSubtractor
+public sealed class SpectralSubtractor : ISpectralProcessor
 {
     private readonly int _frameSize;
     private readonly int _hop;
     private readonly double[] _window;
     private readonly double[] _prevGain;
     private readonly double[] _normalization;
+    private double[]? _noiseProfile;
 
     /// <summary>Over‑subtraction factor. 1.0 = plain Boll. Higher = more aggressive.</summary>
     public double Alpha { get; init; } = 2.0;
@@ -185,6 +186,33 @@ public sealed class SpectralSubtractor
     }
 
     /// <summary>
+    /// Reset the processor state (useful between files/chunks).
+    /// </summary>
+    public void Reset()
+    {
+        Array.Clear(_prevGain, 0, _prevGain.Length);
+        _noiseProfile = null;
+    }
+
+    /// <summary>
+    /// Process an audio signal with the given sample rate.
+    /// </summary>
+    /// <param name="samples">Input audio signal</param>
+    /// <param name="sampleRate">Audio sample rate in Hz</param>
+    /// <returns>Processed audio signal</returns>
+    /// <exception cref="ArgumentNullException">Thrown when samples is null.</exception>
+    /// <exception cref="ArgumentException">Thrown when samples is empty, sampleRate is not positive, or noise profile is not set.</exception>
+    public float[] Process(float[] samples, int sampleRate)
+    {
+        ArgumentNullException.ThrowIfNull(samples);
+        ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(sampleRate, 0);
+        ArgumentOutOfRangeException.ThrowIfEqual(samples.Length, 0);
+        ArgumentNullException.ThrowIfNull(_noiseProfile, nameof(_noiseProfile));
+
+        return Process(samples.AsSpan(), _noiseProfile, null);
+    }
+
+    /// <summary>
     /// Resets the smoothing state (previous gain values). Useful when processing
     /// a new audio segment or when the signal characteristics change significantly.
     /// </summary>
@@ -231,9 +259,13 @@ public sealed class SpectralSubtractor
     /// <exception cref="ArgumentException">Thrown when noise profile length doesn't match frame size.</exception>
     public float[] Process(ReadOnlySpan<float> signal, double[] noiseProfile, IProgress<double>? progress = null)
     {
+        ArgumentNullException.ThrowIfNull(noiseProfile);
         int bins = _frameSize / 2 + 1;
         if (noiseProfile.Length != bins)
             throw new ArgumentException("Noise profile bin count does not match frame size.");
+
+        // Store noise profile for the IAudioProcessor.Process method
+        _noiseProfile = noiseProfile;
 
         var output = new float[signal.Length];
 

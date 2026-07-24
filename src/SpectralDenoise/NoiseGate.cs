@@ -7,9 +7,8 @@ namespace SpectralDenoise;
 /// When the input signal level is below the threshold (in dB), the gain is
 /// smoothly reduced to 0. When above threshold, the gain is 1.
 /// </summary>
-public sealed class NoiseGate
+public sealed class NoiseGate : IAudioProcessor
 {
-    private readonly int _sampleRate;
     private readonly float _thresholdDb;
     private readonly float _attackCoeff;
     private readonly float _releaseCoeff;
@@ -24,7 +23,7 @@ public sealed class NoiseGate
     /// <param name="releaseMs">Release time in milliseconds (time to close the gate, default: 100 ms)</param>
     public NoiseGate(int sampleRate, float thresholdDb = -45f, float attackMs = 5f, float releaseMs = 100f)
     {
-        _sampleRate = sampleRate;
+        ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(sampleRate, 0);
         _thresholdDb = thresholdDb;
 
         // Convert times to coefficients
@@ -36,19 +35,26 @@ public sealed class NoiseGate
     /// <summary>
     /// Process a signal through the noise gate.
     /// </summary>
-    /// <param name="signal">Input audio signal</param>
+    /// <param name="samples">Input audio signal</param>
+    /// <param name="sampleRate">Audio sample rate in Hz</param>
     /// <returns>Gated output signal</returns>
-    public float[] Process(ReadOnlySpan<float> signal)
+    /// <exception cref="ArgumentNullException">Thrown when samples is null.</exception>
+    /// <exception cref="ArgumentException">Thrown when samples is empty or sampleRate is not positive.</exception>
+    public float[] Process(float[] samples, int sampleRate)
     {
-        var output = new float[signal.Length];
+        ArgumentNullException.ThrowIfNull(samples);
+        ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(sampleRate, 0);
+        ArgumentOutOfRangeException.ThrowIfEqual(samples.Length, 0);
 
-        for (int i = 0; i < signal.Length; i++)
+        var output = new float[samples.Length];
+
+        for (int i = 0; i < samples.Length; i++)
         {
             // Convert threshold from dB to linear amplitude
             float thresholdLinear = DecibelsToLinear(_thresholdDb);
 
             // Get current sample
-            float sample = signal[i];
+            float sample = samples[i];
             float absSample = Math.Abs(sample);
 
             // Calculate desired gain based on current level
