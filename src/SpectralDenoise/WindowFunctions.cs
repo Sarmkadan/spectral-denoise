@@ -1,5 +1,96 @@
 namespace SpectralDenoise;
 
+using System;
+
+/// <summary>
+/// Interface for window functions.
+/// </summary>
+public interface IWindowFunction
+{
+    /// <summary>
+    /// Name of the window function.
+    /// </summary>
+    string Name { get; }
+
+    /// <summary>
+    /// Fills the supplied span with the window values.
+    /// </summary>
+    /// <param name="window">Span to be filled. Length determines the window size.</param>
+    void Fill(Span<float> window);
+}
+
+/// <summary>
+/// Hann window implementation (symmetric or periodic).
+/// </summary>
+public sealed class HannWindowFunction : IWindowFunction
+{
+    public string Name => "Hann";
+
+    private readonly bool _periodic;
+
+    public HannWindowFunction(bool periodic = false) => _periodic = periodic;
+
+    public void Fill(Span<float> window)
+    {
+        int size = window.Length;
+        if (size == 0)
+            return;
+
+        double period = _periodic ? size : size - 1;
+        for (int i = 0; i < size; i++)
+        {
+            window[i] = (float)(0.5 * (1.0 - Math.Cos(2.0 * Math.PI * i / period)));
+        }
+    }
+}
+
+/// <summary>
+/// Hamming window implementation (symmetric).
+/// </summary>
+public sealed class HammingWindowFunction : IWindowFunction
+{
+    public string Name => "Hamming";
+
+    public void Fill(Span<float> window)
+    {
+        int size = window.Length;
+        if (size == 0)
+            return;
+
+        double period = size - 1;
+        for (int i = 0; i < size; i++)
+        {
+            window[i] = (float)(0.54 - 0.46 * Math.Cos(2.0 * Math.PI * i / period));
+        }
+    }
+}
+
+/// <summary>
+/// Blackman window implementation (symmetric).
+/// </summary>
+public sealed class BlackmanWindowFunction : IWindowFunction
+{
+    public string Name => "Blackman";
+
+    public void Fill(Span<float> window)
+    {
+        int size = window.Length;
+        if (size == 0)
+            return;
+
+        double period = size - 1;
+        for (int i = 0; i < size; i++)
+        {
+            double a0 = 0.42;
+            double a1 = 0.5;
+            double a2 = 0.08;
+            double cos1 = Math.Cos(2.0 * Math.PI * i / period);
+            double cos2 = Math.Cos(4.0 * Math.PI * i / period);
+            window[i] = (float)(a0 - a1 * cos1 + a2 * cos2);
+        }
+    }
+}
+
 public static class WindowFunctions
 {
     /// <summary>
@@ -14,10 +105,51 @@ public static class WindowFunctions
         if (size <= 0)
             throw new ArgumentException("Size must be positive.", nameof(size));
 
+        // Use the new HannWindowFunction implementation
+        var floatWindow = new float[size];
+        new HannWindowFunction(periodic).Fill(floatWindow);
+
         var w = new double[size];
-        double period = periodic ? size : size - 1;
         for (int i = 0; i < size; i++)
-            w[i] = 0.5 * (1.0 - Math.Cos(2.0 * Math.PI * i / period));
+            w[i] = floatWindow[i];
+        return w;
+    }
+
+    /// <summary>
+    /// Hamming window (symmetric).
+    /// </summary>
+    /// <param name="size">Window size (must be positive)</param>
+    /// <returns>Window function of length size</returns>
+    public static double[] Hamming(int size)
+    {
+        if (size <= 0)
+            throw new ArgumentException("Size must be positive.", nameof(size));
+
+        var floatWindow = new float[size];
+        new HammingWindowFunction().Fill(floatWindow);
+
+        var w = new double[size];
+        for (int i = 0; i < size; i++)
+            w[i] = floatWindow[i];
+        return w;
+    }
+
+    /// <summary>
+    /// Blackman window (symmetric).
+    /// </summary>
+    /// <param name="size">Window size (must be positive)</param>
+    /// <returns>Window function of length size</returns>
+    public static double[] Blackman(int size)
+    {
+        if (size <= 0)
+            throw new ArgumentException("Size must be positive.", nameof(size));
+
+        var floatWindow = new float[size];
+        new BlackmanWindowFunction().Fill(floatWindow);
+
+        var w = new double[size];
+        for (int i = 0; i < size; i++)
+            w[i] = floatWindow[i];
         return w;
     }
 
