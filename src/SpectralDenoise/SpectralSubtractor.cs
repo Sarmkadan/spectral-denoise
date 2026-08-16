@@ -42,7 +42,7 @@ public sealed class SpectralSubtractor : ISpectralProcessor, ISpectralSubtractor
     private readonly int _hop;
     private readonly double[] _window;
     private readonly double[] _prevGain;
-    private readonly double _normalizationConstant;
+    private readonly double _normalizationConstant; // Sum of squared window values (COLA normalization)
     private readonly Complex[] _analysisBuffer;
     private double[]? _noiseProfile;
 
@@ -268,8 +268,12 @@ public sealed class SpectralSubtractor : ISpectralProcessor, ISpectralSubtractor
 
         _hop = hop;
 
-        // Pre-compute normalization constant for perfect reconstruction
-        _normalizationConstant = _hop;
+        // Pre‑compute normalization constant for perfect reconstruction.
+        // This is the sum of squared window values; for a COLA‑compatible window it should equal hop.
+        double sumSq = 0.0;
+        for (int i = 0; i < _window.Length; i++)
+            sumSq += _window[i] * _window[i];
+        _normalizationConstant = sumSq;
 
         // Validate configuration after initialization
         EnsureValid();
@@ -532,11 +536,10 @@ public sealed class SpectralSubtractor : ISpectralProcessor, ISpectralSubtractor
             }
         }
 
-        // undo the analysis+synthesis window weighting using pre-computed normalization
-        // This ensures perfect reconstruction when COLA is satisfied
+        // Undo the analysis+synthesis window weighting using the pre‑computed normalization.
+        // This ensures perfect reconstruction when COLA is satisfied.
         for (int i = 0; i < output.Length; i++)
         {
-            // Use the pre-computed normalization value for this position
             double norm = _normalizationConstant;
             if (norm > 1e-6)
                 output[i] /= (float)norm;
@@ -581,6 +584,10 @@ public sealed class SpectralSubtractor : ISpectralProcessor, ISpectralSubtractor
 
         int outputSamplesWritten = 0;
         int inputIndex = 0;
+
+        // Pre‑compute smoothing coefficients once per block processing
+        double attackCoeff = CalculateSmoothingCoefficient(AttackMs, 44100, isAttack: true);
+        double releaseCoeff = CalculateSmoothingCoefficient(ReleaseMs, 44100, isAttack: false);
 
         // Process input samples in chunks
         while (inputIndex < input.Length)
@@ -642,8 +649,7 @@ public sealed class SpectralSubtractor : ISpectralProcessor, ISpectralSubtractor
                     {
                         double targetGain = currentGain;
                         double prev = _prevGain[b];
-                        double coeff = (targetGain > prev) ? CalculateSmoothingCoefficient(AttackMs, 44100, isAttack: true) :
-                                                       CalculateSmoothingCoefficient(ReleaseMs, 44100, isAttack: false);
+                        double coeff = (targetGain > prev) ? attackCoeff : releaseCoeff;
                         double smoothedGain = prev + coeff * (targetGain - prev);
                         _prevGain[b] = smoothedGain;
                         cleaned *= smoothedGain;
@@ -657,7 +663,7 @@ public sealed class SpectralSubtractor : ISpectralProcessor, ISpectralSubtractor
                 // Inverse FFT
                 Fft.Inverse(state.FftBuffer);
 
-                // Accumulate output (overlap-add)
+                // Accumulate output (overlap‑add)
                 for (int i = 0; i < state.FrameSize; i++)
                 {
                     int outputIndex = outputOffset + (state._overlapSamples - state.Hop) + i;
@@ -689,6 +695,15 @@ public sealed class SpectralSubtractor : ISpectralProcessor, ISpectralSubtractor
             {
                 // Not enough samples yet, wait for more input
                 break;
+            }
+        }
+
+        // Apply normalization to the portion of the output that was written in this call
+        if (_normalizationConstant > 1e-6 && outputSamplesWritten > 0)
+        {
+            for (int i = outputOffset; i < outputOffset + outputSamplesWritten; i++)
+            {
+                output[i] = (float)(output[i] / _normalizationConstant);
             }
         }
 
