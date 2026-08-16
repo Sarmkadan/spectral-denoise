@@ -9,7 +9,7 @@ namespace SpectralDenoise.Tests
     /// Tests verify the correctness of forward and inverse FFT operations, including edge cases
     /// and specific frequency bin behaviors.
     /// </summary>
-    public class FftTests
+    public class FftTests : IFftTests
     {
         /// <summary>
         /// Tests that a real sine wave at an exact frequency bin produces a peak at that bin in the FFT output.
