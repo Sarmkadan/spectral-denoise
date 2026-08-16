@@ -103,11 +103,7 @@ public sealed class SpectralSubtractor : ISpectralProcessor, ISpectralSubtractor
                 if (!WindowFunctions.SatisfiesCola(_window, value))
                 {
                     throw new ArgumentException(
-                        $"Hop size {value} does not satisfy the Constant Overlap-Add (COLA) condition " +
-                        $"with the current window. The sum of squared window values should be approximately " +
-                        $"equal to the hop size for perfect reconstruction. " +
-                        $"Use a periodic window (e.g., WindowFunctions.HannPeriodic(frameSize)) and ensure hop size is compatible. " +
-                        $"Common COLA-compatible combinations: hop = frameSize/4 with periodic Hann, hop = frameSize/2 with periodic Hann.");
+                        string.Format(SpectralSubtractorConstants.HopColaErrorMessage, value));
                 }
             }
             _hop = value;
@@ -122,7 +118,7 @@ public sealed class SpectralSubtractor : ISpectralProcessor, ISpectralSubtractor
     /// <summary>
     /// Validates the current configuration for common problems.
     /// </summary>
-    /// <returns>A list of human-readable problem descriptions; empty if valid.</returns>
+    /// <returns>A list of human‑readable problem descriptions; empty if valid.</returns>
     public IReadOnlyList<string> Validate()
     {
         var problems = new List<string>();
@@ -151,10 +147,10 @@ public sealed class SpectralSubtractor : ISpectralProcessor, ISpectralSubtractor
         }
 
         // Validate frame size is within reasonable bounds
-        if (FrameSize < 128 || FrameSize > 8192)
+        if (FrameSize < SpectralSubtractorConstants.MinFrameSize || FrameSize > SpectralSubtractorConstants.MaxFrameSize)
         {
             problems.Add(
-                $"FrameSize should be between 128 and 8192 samples (got {FrameSize}).");
+                $"FrameSize should be between {SpectralSubtractorConstants.MinFrameSize} and {SpectralSubtractorConstants.MaxFrameSize} samples (got {FrameSize}).");
         }
 
         return problems;
@@ -214,11 +210,7 @@ public sealed class SpectralSubtractor : ISpectralProcessor, ISpectralSubtractor
             }
 
             throw new ArgumentException(
-                $"Window/overlap combination does not satisfy the Constant Overlap-Add (COLA) condition. " +
-                $"The sum of squared window values is {sum:F6}, but should be approximately {hop} for perfect reconstruction. " +
-                $"This causes amplitude modulation artifacts in the output. " +
-                $"Use a periodic window (e.g., WindowFunctions.HannPeriodic(frameSize)) and ensure hop size is compatible. " +
-                $"Common COLA-compatible combinations: hop = frameSize/4 with periodic Hann, hop = frameSize/2 with periodic Hann.");
+                string.Format(SpectralSubtractorConstants.ValidateColaErrorMessage, sum, hop));
         }
     }
 
@@ -253,10 +245,10 @@ public sealed class SpectralSubtractor : ISpectralProcessor, ISpectralSubtractor
     public SpectralSubtractor(int frameSize = 1024, int hop = 256)
     {
         if ((frameSize & (frameSize - 1)) != 0)
-            throw new ArgumentException("frameSize must be a power of two.", nameof(frameSize));
+            throw new ArgumentException(SpectralSubtractorConstants.FrameSizePowerOfTwoMessage, nameof(frameSize));
 
         if (hop <= 0)
-            throw new ArgumentOutOfRangeException(nameof(hop), "Hop must be positive.");
+            throw new ArgumentOutOfRangeException(nameof(hop), SpectralSubtractorConstants.HopPositiveMessage);
 
         _frameSize = frameSize;
         _window = WindowFunctions.HannPeriodic(frameSize);
@@ -330,7 +322,7 @@ public sealed class SpectralSubtractor : ISpectralProcessor, ISpectralSubtractor
         public int OverlapSamples => _overlapSamples;
 
         /// <summary>
-        /// Gets the overlap buffer (read-only).
+        /// Gets the overlap buffer (read‑only).
         /// </summary>
         public ReadOnlySpan<double> OverlapBuffer => _overlapBuffer.AsSpan(0, _overlapSamples);
 
@@ -402,7 +394,7 @@ public sealed class SpectralSubtractor : ISpectralProcessor, ISpectralSubtractor
 
     /// <summary>
     /// Estimate a noise magnitude profile from a mono sample span, assumed to
-    /// be noise-only (e.g. leading silence).
+    /// be noise‑only (e.g. leading silence).
     /// </summary>
     public double[] EstimateNoiseProfile(ReadOnlySpan<float> noiseOnly)
     {
@@ -420,8 +412,7 @@ public sealed class SpectralSubtractor : ISpectralProcessor, ISpectralSubtractor
         }
 
         if (frames == 0)
-            throw new InvalidOperationException(
-                "Noise region shorter than one frame - give me more leading silence.");
+            throw new InvalidOperationException(SpectralSubtractorConstants.NoiseRegionTooShortMessage);
 
         for (int b = 0; b < bins; b++)
             profile[b] /= frames;
@@ -430,7 +421,7 @@ public sealed class SpectralSubtractor : ISpectralProcessor, ISpectralSubtractor
     }
 
     /// <summary>
-    /// Denoise a whole mono signal via overlap-add. Returns a new buffer the
+    /// Denoise a whole mono signal via overlap‑add. Returns a new buffer the
     /// same length as the input.
     /// </summary>
     /// <param name="signal">Input signal</param>
@@ -449,7 +440,7 @@ public sealed class SpectralSubtractor : ISpectralProcessor, ISpectralSubtractor
 
         var output = new float[signal.Length];
 
-        double sampleRate = 44100; // Standard sample rate for time constant calculations
+        double sampleRate = SpectralSubtractorConstants.DefaultSampleRate; // Standard sample rate for time constant calculations
         double attackCoeff = CalculateSmoothingCoefficient(AttackMs, sampleRate, isAttack: true);
         double releaseCoeff = CalculateSmoothingCoefficient(ReleaseMs, sampleRate, isAttack: false);
 
@@ -482,7 +473,7 @@ public sealed class SpectralSubtractor : ISpectralProcessor, ISpectralSubtractor
                     double noisePower = noiseProfile[b] * noiseProfile[b];
 
                     // Avoid division by zero and negative SNR
-                    double snr = signalPower > 1e-20 ? signalPower / noisePower : 0.0;
+                    double snr = signalPower > SpectralSubtractorConstants.PowerEpsilon ? signalPower / noisePower : 0.0;
                     currentGain = snr / (snr + 1.0);
 
                     cleaned = mag * currentGain;
@@ -499,7 +490,7 @@ public sealed class SpectralSubtractor : ISpectralProcessor, ISpectralSubtractor
                 double floor = SpectralFloor * mag;
                 if (cleaned < floor) cleaned = floor;
 
-                // Apply one-pole smoothing to gain
+                // Apply one‑pole smoothing to gain
                 if (AttackMs > 0 || ReleaseMs > 0)
                 {
                     // Apply smoothing based on whether gain is increasing or decreasing
@@ -541,7 +532,7 @@ public sealed class SpectralSubtractor : ISpectralProcessor, ISpectralSubtractor
         for (int i = 0; i < output.Length; i++)
         {
             double norm = _normalizationConstant;
-            if (norm > 1e-6)
+            if (norm > SpectralSubtractorConstants.NormalizationEpsilon)
                 output[i] /= (float)norm;
         }
 
@@ -586,8 +577,8 @@ public sealed class SpectralSubtractor : ISpectralProcessor, ISpectralSubtractor
         int inputIndex = 0;
 
         // Pre‑compute smoothing coefficients once per block processing
-        double attackCoeff = CalculateSmoothingCoefficient(AttackMs, 44100, isAttack: true);
-        double releaseCoeff = CalculateSmoothingCoefficient(ReleaseMs, 44100, isAttack: false);
+        double attackCoeff = CalculateSmoothingCoefficient(AttackMs, SpectralSubtractorConstants.DefaultSampleRate, isAttack: true);
+        double releaseCoeff = CalculateSmoothingCoefficient(ReleaseMs, SpectralSubtractorConstants.DefaultSampleRate, isAttack: false);
 
         // Process input samples in chunks
         while (inputIndex < input.Length)
@@ -628,7 +619,7 @@ public sealed class SpectralSubtractor : ISpectralProcessor, ISpectralSubtractor
                         // Wiener filter
                         double signalPower = mag * mag;
                         double noisePower = noiseProfile[b] * noiseProfile[b];
-                        double snr = signalPower > 1e-20 ? signalPower / noisePower : 0.0;
+                        double snr = signalPower > SpectralSubtractorConstants.PowerEpsilon ? signalPower / noisePower : 0.0;
                         currentGain = snr / (snr + 1.0);
                         cleaned = mag * currentGain;
                     }
@@ -699,11 +690,11 @@ public sealed class SpectralSubtractor : ISpectralProcessor, ISpectralSubtractor
         }
 
         // Apply normalization to the portion of the output that was written in this call
-        if (_normalizationConstant > 1e-6 && outputSamplesWritten > 0)
+        if (SpectralSubtractorConstants.NormalizationEpsilon > 0 && outputSamplesWritten > 0)
         {
             for (int i = outputOffset; i < outputOffset + outputSamplesWritten; i++)
             {
-                output[i] = (float)(output[i] / _normalizationConstant);
+                output[i] = (float)(output[i] / SpectralSubtractorConstants.NormalizationEpsilon);
             }
         }
 
