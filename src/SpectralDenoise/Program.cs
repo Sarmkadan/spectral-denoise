@@ -163,6 +163,8 @@ static void PrintUsage()
 
 static int Denoise(string inPath, string outPath, double noiseSeconds, double alpha, double floor)
 {
+    IAudioFileReader reader = new WavFile();
+    IAudioFileWriter writer = (IAudioFileWriter)reader;
     SpectralSubtractor sub;
     double[] profile;
     int sr;
@@ -170,7 +172,7 @@ static int Denoise(string inPath, string outPath, double noiseSeconds, double al
     // Try to read as stereo first
     try
     {
-        var (left, right, sampleRate) = WavFile.ReadStereo(inPath);
+        var (left, right, sampleRate) = reader.ReadStereo(inPath);
         sr = sampleRate;
         Console.WriteLine($"loaded stereo: {left.Length} samples @ {sr}Hz (left + right)");
 
@@ -200,7 +202,7 @@ static int Denoise(string inPath, string outPath, double noiseSeconds, double al
         Console.WriteLine("denoising right channel...");
         var cleanedRight = sub.Process(right, profile, rightProgress);
 
-        WavFile.WriteStereo(outPath, cleanedLeft, cleanedRight, sr);
+        writer.WriteStereo(outPath, cleanedLeft, cleanedRight, sr);
 
         Console.WriteLine($"wrote {outPath}");
         Console.WriteLine($"input RMS left: {Rms(left):F5}, right: {Rms(right):F5}");
@@ -210,7 +212,7 @@ static int Denoise(string inPath, string outPath, double noiseSeconds, double al
     catch (InvalidDataException)
     {
         // Fall back to mono processing if not stereo
-        var (samples, sampleRate) = WavFile.ReadMono(inPath);
+        var (samples, sampleRate) = reader.ReadMono(inPath);
         sr = sampleRate;
         Console.WriteLine($"loaded {samples.Length} samples @ {sr}Hz");
 
@@ -232,7 +234,7 @@ static int Denoise(string inPath, string outPath, double noiseSeconds, double al
 
         var monoProgress = new Progress<double>(p => Console.WriteLine($"Progress: {p:P0}"));
         var cleaned = sub.Process(samples, profile, monoProgress);
-        WavFile.WriteMono(outPath, cleaned, sr);
+        writer.WriteMono(outPath, cleaned, sr);
 
         Console.WriteLine($"wrote {outPath}");
         Console.WriteLine($"input RMS {Rms(samples):F5}");

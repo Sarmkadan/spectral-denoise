@@ -5,11 +5,7 @@ using NAudio.Wave;
 
 namespace SpectralDenoise;
 
-/// <summary>
-/// Thin NAudio wrapper. Reads any PCM/IEEE wav into float arrays and
-/// writes 16-bit PCM back out. Supports mono and stereo channels.
-/// </summary>
-public static class WavFile
+public class WavFile : IAudioFileReader, IAudioFileWriter
 {
     private const int MaxSampleRate = 192_000;
     private const int MinSampleRate = 8_000;
@@ -159,6 +155,8 @@ public static class WavFile
         }
     }
 
+    IEnumerable<(float[] samples, int sampleRate, bool isLastBlock)> IAudioFileReader.ReadMonoStream(string path, int blockSize, IProgress<double>? progress) => ReadMonoStream(path, blockSize, progress);
+
     /// <summary>
     /// Reads the entire audio from a WAV file as a mono stream.
     /// </summary>
@@ -208,6 +206,8 @@ public static class WavFile
         return (mono, sampleRate);
     }
 
+    (float[] samples, int sampleRate) IAudioFileReader.ReadMono(string path) => ReadMono(path);
+
     public static void WriteMono(string path, float[] samples, int sampleRate)
     {
         ArgumentNullException.ThrowIfNull(path);
@@ -217,6 +217,8 @@ public static class WavFile
         using var writer = new WaveFileWriter(path, format);
         writer.WriteSamples(samples, 0, samples.Length);
     }
+
+    void IAudioFileWriter.WriteMono(string path, float[] samples, int sampleRate) => WriteMono(path, samples, sampleRate);
 
     /// <summary>
     /// Reads the entire audio from a WAV file as a stereo stream.
@@ -260,6 +262,8 @@ public static class WavFile
         return (left, right, sampleRate);
     }
 
+    (float[] left, float[] right, int sampleRate) IAudioFileReader.ReadStereo(string path) => ReadStereo(path);
+
     public static void WriteStereo(string path, float[] left, float[] right, int sampleRate)
     {
         ArgumentNullException.ThrowIfNull(path);
@@ -288,4 +292,6 @@ public static class WavFile
 
         writer.WriteSamples(interleavedShorts, 0, interleavedShorts.Length);
     }
+
+    void IAudioFileWriter.WriteStereo(string path, float[] left, float[] right, int sampleRate) => WriteStereo(path, left, right, sampleRate);
 }
