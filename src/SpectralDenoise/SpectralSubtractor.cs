@@ -32,6 +32,10 @@ public enum DenoiseMode
 /// This is deliberately the textbook version. It works but it hisses and
 /// leaves "musical noise" all over the place - see README.
 /// </summary>
+/// <remarks>
+/// This class is not thread-safe. Do not share an instance across multiple threads
+/// without external synchronization.
+/// </remarks>
 public sealed class SpectralSubtractor : ISpectralProcessor, ISpectralSubtractor
 {
     private readonly int _frameSize;
@@ -39,6 +43,7 @@ public sealed class SpectralSubtractor : ISpectralProcessor, ISpectralSubtractor
     private readonly double[] _window;
     private readonly double[] _prevGain;
     private readonly double[] _normalization;
+    private readonly Complex[] _analysisBuffer;
     private double[]? _noiseProfile;
 
     /// <summary>Over‑subtraction factor. 1.0 = plain Boll. Higher = more aggressive.</summary>
@@ -256,6 +261,7 @@ public sealed class SpectralSubtractor : ISpectralProcessor, ISpectralSubtractor
         _frameSize = frameSize;
         _window = WindowFunctions.HannPeriodic(frameSize);
         _prevGain = new double[frameSize / 2 + 1];
+        _analysisBuffer = new Complex[frameSize];
 
         // Validate COLA condition
         ValidateCola(_window, hop);
@@ -402,7 +408,8 @@ public sealed class SpectralSubtractor : ISpectralProcessor, ISpectralSubtractor
 
         for (int start = 0; start + _frameSize <= noiseOnly.Length; start += _hop)
         {
-            var spec = Analyze(noiseOnly.Slice(start, _frameSize));
+            AnalyzeInto(noiseOnly.Slice(start, _frameSize));
+            var spec = _analysisBuffer;
             for (int b = 0; b < bins; b++)
                 profile[b] += spec[b].Magnitude;
             frames++;
@@ -451,7 +458,8 @@ public sealed class SpectralSubtractor : ISpectralProcessor, ISpectralSubtractor
 
         for (int start = 0; start + _frameSize <= signal.Length; start += _hop)
         {
-            var spec = Analyze(signal.Slice(start, _frameSize));
+            AnalyzeInto(signal.Slice(start, _frameSize));
+            var spec = _analysisBuffer;
 
             // Apply denoising based on mode
             for (int b = 0; b < bins; b++)
@@ -693,12 +701,10 @@ public sealed class SpectralSubtractor : ISpectralProcessor, ISpectralSubtractor
         return outputSamplesWritten;
     }
 
-    private Complex[] Analyze(ReadOnlySpan<float> frame)
+    private void AnalyzeInto(ReadOnlySpan<float> frame)
     {
-        var buffer = new Complex[_frameSize];
         for (int i = 0; i < _frameSize; i++)
-            buffer[i] = new Complex(frame[i] * _window[i], 0.0);
-        Fft.Forward(buffer);
-        return buffer;
+            _analysisBuffer[i] = new Complex(frame[i] * _window[i], 0.0);
+        Fft.Forward(_analysisBuffer);
     }
 }
