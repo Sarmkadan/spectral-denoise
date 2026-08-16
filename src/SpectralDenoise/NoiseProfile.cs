@@ -49,16 +49,16 @@ public sealed class NoiseProfile
         ArgumentNullException.ThrowIfNull(magnitudes);
 
         if (magnitudes.Length == 0)
-            throw new ArgumentException("Magnitudes array cannot be empty.", nameof(magnitudes));
+            throw new ArgumentException(NoiseProfileConstants.ErrorMagnitudesEmpty, nameof(magnitudes));
 
         if (sampleRate <= 0)
-            throw new ArgumentException("Sample rate must be positive.", nameof(sampleRate));
+            throw new ArgumentException(NoiseProfileConstants.ErrorSampleRatePositive, nameof(sampleRate));
 
         if (frameSize <= 0)
-            throw new ArgumentException("Frame size must be positive.", nameof(frameSize));
+            throw new ArgumentException(NoiseProfileConstants.ErrorFrameSizePositive, nameof(frameSize));
 
         if (hop <= 0)
-            throw new ArgumentException("Hop must be positive.", nameof(hop));
+            throw new ArgumentException(NoiseProfileConstants.ErrorHopPositive, nameof(hop));
 
         Magnitudes = magnitudes;
         SampleRate = sampleRate;
@@ -182,20 +182,21 @@ public sealed class NoiseProfile
     public void Validate(int sampleRate, int frameSize, int hop)
     {
         if (SampleRate != sampleRate)
-            throw new InvalidOperationException(
-                $"Sample rate mismatch: expected {sampleRate}Hz, got {SampleRate}Hz");
+            throw new InvalidOperationException(string.Format(NoiseProfileConstants.ErrorSampleRateMismatch,
+                sampleRate, SampleRate));
 
         if (FrameSize != frameSize)
-            throw new InvalidOperationException(
-                $"Frame size mismatch: expected {frameSize}, got {FrameSize}");
+            throw new InvalidOperationException(string.Format(NoiseProfileConstants.ErrorFrameSizeMismatch,
+                frameSize, FrameSize));
 
         if (Hop != hop)
-            throw new InvalidOperationException(
-                $"Hop size mismatch: expected {hop}, got {Hop}");
+            throw new InvalidOperationException(string.Format(NoiseProfileConstants.ErrorHopMismatch,
+                hop, Hop));
 
-        if (Magnitudes.Length != frameSize / 2 + 1)
-            throw new InvalidOperationException(
-                $"Magnitude array length mismatch: expected {frameSize / 2 + 1}, got {Magnitudes.Length}");
+        int expectedLength = frameSize / 2 + 1;
+        if (Magnitudes.Length != expectedLength)
+            throw new InvalidOperationException(string.Format(NoiseProfileConstants.ErrorMagnitudeArrayLengthMismatch,
+                expectedLength, Magnitudes.Length));
     }
 
     /// <summary>
@@ -219,12 +220,12 @@ public sealed class NoiseProfile
         // Validate array lengths
         if (Magnitudes is null)
         {
-            throw new ArgumentException("Magnitudes array cannot be null.");
+            throw new ArgumentException(NoiseProfileConstants.ErrorMagnitudesNull);
         }
 
         if (Magnitudes.Length == 0)
         {
-            throw new ArgumentException("Magnitudes array cannot be empty.");
+            throw new ArgumentException(NoiseProfileConstants.ErrorMagnitudesEmpty);
         }
 
         // Validate numeric fields
@@ -237,9 +238,8 @@ public sealed class NoiseProfile
         int expectedMagnitudeLength = FrameSize / 2 + 1;
         if (Magnitudes.Length != expectedMagnitudeLength)
         {
-            throw new ArgumentException(
-                $"Magnitudes array length must be {expectedMagnitudeLength} for frame size {FrameSize} " +
-                $"(got {Magnitudes.Length}).");
+            throw new ArgumentException(string.Format(NoiseProfileConstants.ErrorMagnitudesLength,
+                expectedMagnitudeLength, FrameSize, Magnitudes.Length));
         }
 
         // Validate that all magnitude values are non-negative
