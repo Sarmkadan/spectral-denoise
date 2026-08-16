@@ -4,7 +4,7 @@ using Xunit;
 
 namespace SpectralDenoise.Tests
 {
-    public class SpectralSubtractorValidationTests
+    public class SpectralSubtractorValidationTests : ISpectralSubtractorValidationTests
     {
         [Fact]
         public void Validate_SpectralSubtractorWithValidProperties_ReturnsEmptyList()
