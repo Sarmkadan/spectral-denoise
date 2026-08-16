@@ -79,6 +79,32 @@ public class WavFile : IAudioFileReader, IAudioFileWriter
     }
 
     /// <summary>
+    /// Safely creates an AudioFileReader and validates the WAV file.
+    /// Any low‑level parsing errors (truncated header, missing chunks, etc.) are
+    /// wrapped in an InvalidDataException with a clear message, preventing
+    /// IndexOutOfRangeException from bubbling up.
+    /// </summary>
+    private static AudioFileReader CreateReader(string path)
+    {
+        try
+        {
+            var reader = new AudioFileReader(path);
+            ValidateWav(reader, path);
+            return reader;
+        }
+        catch (Exception ex) when (
+            ex is EndOfStreamException ||
+            ex is IndexOutOfRangeException ||
+            ex is InvalidDataException ||
+            ex is ArgumentException ||
+            ex is IOException)
+        {
+            // Wrap low‑level parsing errors in a consistent InvalidDataException
+            throw new InvalidDataException($"Failed to read WAV file '{path}': {ex.Message}", ex);
+        }
+    }
+
+    /// <summary>
     /// Reads audio from a WAV file in blocks, allowing streaming processing of large files.
     /// </summary>
     /// <param name="path">Path to the WAV file</param>
@@ -93,8 +119,7 @@ public class WavFile : IAudioFileReader, IAudioFileWriter
     {
         ArgumentNullException.ThrowIfNull(path);
 
-        using var reader = new AudioFileReader(path);
-        ValidateWav(reader, path);
+        using var reader = CreateReader(path);
 
         int sampleRate = reader.WaveFormat.SampleRate;
 
@@ -170,8 +195,7 @@ public class WavFile : IAudioFileReader, IAudioFileWriter
     {
         ArgumentNullException.ThrowIfNull(path);
 
-        using var reader = new AudioFileReader(path);
-        ValidateWav(reader, path);
+        using var reader = CreateReader(path);
 
         int sampleRate = reader.WaveFormat.SampleRate;
 
@@ -233,8 +257,7 @@ public class WavFile : IAudioFileReader, IAudioFileWriter
     {
         ArgumentNullException.ThrowIfNull(path);
 
-        using var reader = new AudioFileReader(path);
-        ValidateWav(reader, path);
+        using var reader = CreateReader(path);
 
         if (reader.WaveFormat.Channels != 2)
             throw new InvalidDataException("Input file must be stereo (2 channels).");
