@@ -42,7 +42,7 @@ public sealed class SpectralSubtractor : ISpectralProcessor, ISpectralSubtractor
     private readonly int _hop;
     private readonly double[] _window;
     private readonly double[] _prevGain;
-    private readonly double[] _normalization;
+    private readonly double _normalizationConstant;
     private readonly Complex[] _analysisBuffer;
     private double[]? _noiseProfile;
 
@@ -268,8 +268,8 @@ public sealed class SpectralSubtractor : ISpectralProcessor, ISpectralSubtractor
 
         _hop = hop;
 
-        // Pre-compute normalization array for perfect reconstruction
-        _normalization = WindowFunctions.ComputeWindowSumSquared(_window, _hop, 1024 * 10);
+        // Pre-compute normalization constant for perfect reconstruction
+        _normalizationConstant = _hop;
 
         // Validate configuration after initialization
         EnsureValid();
@@ -537,8 +537,7 @@ public sealed class SpectralSubtractor : ISpectralProcessor, ISpectralSubtractor
         for (int i = 0; i < output.Length; i++)
         {
             // Use the pre-computed normalization value for this position
-            // If we're beyond the pre-computed array, compute it on the fly
-            double norm = i < _normalization.Length ? _normalization[i] : WindowFunctions.ComputeWindowSumSquared(_window, _hop, 1)[i];
+            double norm = _normalizationConstant;
             if (norm > 1e-6)
                 output[i] /= (float)norm;
         }
