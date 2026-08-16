@@ -1,6 +1,8 @@
 using System;
 using System.Collections.Generic;
+using System.Buffers.Binary;
 using System.IO;
+using System.Text;
 using NAudio.Wave;
 
 namespace SpectralDenoise;
@@ -22,7 +24,14 @@ public class WavFile : IAudioFileReader, IAudioFileWriter
     /// </summary>
     private const int MaxDataChunkSize = 100_000_000;
 
-    private static void ValidateWav(AudioFileReader reader, string path)
+    /// <summary>
+    /// Parses and validates a WAV header using a single read of the file into memory.
+    /// Validation is performed via BinaryPrimitives over a ReadOnlySpan&lt;byte&gt;.
+    /// </summary>
+    /// <param name="path">Path to the WAV file</param>
+    /// <exception cref="ArgumentNullException">If path is null.</exception>
+    /// <exception cref="InvalidDataException">If the header is malformed or violates constraints.</exception>
+    private static void ParseAndValidateHeader(string path)
     {
         ArgumentNullException.ThrowIfNull(path);
 
@@ -39,7 +48,6 @@ public class WavFile : IAudioFileReader, IAudioFileWriter
                 nameof(path));
         }
 
-        // Validate file exists and is not a directory
         var fileInfo = new FileInfo(path);
         if (!fileInfo.Exists)
             throw new FileNotFoundException("The specified WAV file was not found.", path);
@@ -47,35 +55,103 @@ public class WavFile : IAudioFileReader, IAudioFileWriter
         if (fileInfo.Length > MaxFileSize)
             throw new InvalidDataException("File size exceeds maximum allowed limit of 100MB.");
 
+        // Read the entire file into memory once
+        byte[] fileBytes = File.ReadAllBytes(path);
+        ReadOnlySpan<byte> span = new ReadOnlySpan<byte>(fileBytes);
+
+        if (span.Length < 44)
+            throw new InvalidDataException("File too small to be a valid WAV file.");
+
+        int offset = 0;
+
+        // RIFF header
+        if (Encoding.ASCII.GetString(span.Slice(offset, 4)) != "RIFF")
+            throw new InvalidDataException("Missing RIFF header.");
+        offset += 4;
+
+        // Skip overall file size (4 bytes)
+        offset += 4;
+
+        if (Encoding.ASCII.GetString(span.Slice(offset, 4)) != "WAVE")
+            throw new InvalidDataException("Missing WAVE header.");
+        offset += 4;
+
+        bool fmtFound = false;
+        bool dataFound = false;
+
+        int audioFormat = 0;
+        int channels = 0;
+        int sampleRate = 0;
+        int bitsPerSample = 0;
+        long dataChunkSize = 0;
+
+        while (offset + 8 <= span.Length)
+        {
+            string chunkId = Encoding.ASCII.GetString(span.Slice(offset, 4));
+            offset += 4;
+
+            int chunkSize = BinaryPrimitives.ReadInt32LittleEndian(span.Slice(offset, 4));
+            offset += 4;
+
+            if (chunkId == "fmt ")
+            {
+                fmtFound = true;
+                if (chunkSize < 16)
+                    throw new InvalidDataException("Invalid fmt chunk size.");
+
+                audioFormat = BinaryPrimitives.ReadInt16LittleEndian(span.Slice(offset, 2));
+                channels = BinaryPrimitives.ReadInt16LittleEndian(span.Slice(offset + 2, 2));
+                sampleRate = BinaryPrimitives.ReadInt32LittleEndian(span.Slice(offset + 4, 4));
+                // byteRate (4) and blockAlign (2) are skipped
+                bitsPerSample = BinaryPrimitives.ReadInt16LittleEndian(span.Slice(offset + 14, 2));
+            }
+            else if (chunkId == "data")
+            {
+                dataFound = true;
+                dataChunkSize = chunkSize;
+                // No need to parse further for validation
+            }
+
+            // Move to next chunk (including padding byte if chunk size is odd)
+            offset += chunkSize;
+            if ((chunkSize & 1) == 1)
+                offset += 1;
+        }
+
+        if (!fmtFound)
+            throw new InvalidDataException("fmt chunk not found.");
+        if (!dataFound)
+            throw new InvalidDataException("data chunk not found.");
+
         // Validate sample rate
-        if (reader.WaveFormat.SampleRate < MinSampleRate || reader.WaveFormat.SampleRate > MaxSampleRate)
+        if (sampleRate < MinSampleRate || sampleRate > MaxSampleRate)
             throw new InvalidDataException(
-                $"Unsupported sample rate: {reader.WaveFormat.SampleRate}. Must be between {MinSampleRate}Hz and {MaxSampleRate}Hz.");
+                $"Unsupported sample rate: {sampleRate}. Must be between {MinSampleRate}Hz and {MaxSampleRate}Hz.");
 
         // Validate channel count
-        if (reader.WaveFormat.Channels < 1 || reader.WaveFormat.Channels > MaxChannels)
+        if (channels < 1 || channels > MaxChannels)
             throw new InvalidDataException(
-                $"Unsupported channel count: {reader.WaveFormat.Channels}. Must be between 1 and {MaxChannels} channels.");
+                $"Unsupported channel count: {channels}. Must be between 1 and {MaxChannels} channels.");
 
-        // Validate file size sanity (WAV data length cannot exceed file size significantly)
-        if (reader.Length > fileInfo.Length + 1024 * 64)
+        // Validate audio format (1 = PCM, 3 = IEEE float)
+        if (audioFormat != 1 && audioFormat != 3)
             throw new InvalidDataException(
-                "Declared WAV length exceeds file size by more than 64KB header overhead.");
+                $"Unsupported WAV format code: {audioFormat}. Only PCM (1) and IEEE float (3) are supported.");
 
-        // Validate RIFF header by checking the format
-        if (reader.WaveFormat.Encoding != WaveFormatEncoding.Pcm &&
-            reader.WaveFormat.Encoding != WaveFormatEncoding.IeeeFloat)
+        // Validate bits per sample (commonly 16 for PCM, 32 for float)
+        if (bitsPerSample != 16 && bitsPerSample != 32)
             throw new InvalidDataException(
-                $"Unsupported WAV format: {reader.WaveFormat.Encoding}. Only PCM and IEEE float are supported.");
+                $"Unsupported bits per sample: {bitsPerSample}. Only 16 or 32 bits are supported.");
 
-        // Additional sanity check for allocation size
-        if (reader.Length / sizeof(float) > MaxAllowedSamples)
+        // Validate data chunk size
+        if (dataChunkSize > MaxDataChunkSize)
+            throw new InvalidDataException("WAV data chunk size exceeds maximum allowed limit of 100MB.");
+
+        // Validate total sample count
+        long totalSamples = dataChunkSize / (bitsPerSample / 8);
+        if (totalSamples > MaxAllowedSamples)
             throw new InvalidDataException(
                 $"File is too large. Maximum allowed samples is {MaxAllowedSamples:N0} ({MaxAllowedSamples * sizeof(float):N0} bytes).");
-
-        // Validate data chunk size if available (NAudio should handle this, but we add extra protection)
-        if (reader.Length > MaxDataChunkSize)
-            throw new InvalidDataException("WAV data chunk size exceeds maximum allowed limit of 100MB.");
     }
 
     /// <summary>
@@ -88,8 +164,11 @@ public class WavFile : IAudioFileReader, IAudioFileWriter
     {
         try
         {
+            // Perform fast header validation using a single read
+            ParseAndValidateHeader(path);
+
+            // If validation passes, let NAudio handle the actual reading
             var reader = new AudioFileReader(path);
-            ValidateWav(reader, path);
             return reader;
         }
         catch (Exception ex) when (
