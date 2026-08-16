@@ -32,7 +32,7 @@ public enum DenoiseMode
 /// This is deliberately the textbook version. It works but it hisses and
 /// leaves "musical noise" all over the place - see README.
 /// </summary>
-public sealed class SpectralSubtractor : ISpectralProcessor
+public sealed class SpectralSubtractor : ISpectralProcessor, ISpectralSubtractor
 {
     private readonly int _frameSize;
     private readonly int _hop;
