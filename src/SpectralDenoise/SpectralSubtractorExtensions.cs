@@ -15,8 +15,8 @@ public static class SpectralSubtractorExtensions
     /// </summary>
     /// <param name="subtractor">The spectral subtractor instance.</param>
     /// <param name="signal">The audio signal to denoise.</param>
-    /// <param name="noiseProfile">The pre-computed noise profile.</param>
-    /// <param name="output">Pre-allocated buffer for the output (must be same length as signal).</param>
+    /// <param name="noiseProfile">The pre‑computed noise profile.</param>
+    /// <param name="output">Pre‑allocated buffer for the output (must be same length as signal).</param>
     /// <returns>The denoised signal (same reference as <paramref name="output"/>).</returns>
     /// <exception cref="ArgumentNullException">Thrown when any parameter is null.</exception>
     /// <exception cref="ArgumentOutOfRangeException">Thrown when output buffer is too small.</exception>
@@ -26,20 +26,20 @@ public static class SpectralSubtractorExtensions
         ArgumentNullException.ThrowIfNull(noiseProfile);
 
         if (signal.IsEmpty)
-            throw new ArgumentException("Signal cannot be empty.", nameof(signal));
+            throw new ArgumentException(SpectralSubtractorExtensionsConstants.SignalEmptyMessage, nameof(signal));
 
         if (output.IsEmpty)
-            throw new ArgumentException("Output buffer cannot be empty.", nameof(output));
+            throw new ArgumentException(SpectralSubtractorExtensionsConstants.OutputEmptyMessage, nameof(output));
 
         if (output.Length < signal.Length)
-            throw new ArgumentOutOfRangeException(nameof(output), "Output buffer must be at least as long as input signal.");
+            throw new ArgumentOutOfRangeException(nameof(output), SpectralSubtractorExtensionsConstants.OutputTooSmallMessage);
 
         // Copy signal to output buffer
         signal.CopyTo(output);
 
         // Process in-place on the output buffer
         // The underlying SpectralSubtractor.Process method works with Span<float> (or float[])
-        // and returns a new array; we ignore the return value because the processing is done in-place.
+        // and returns a new array; we ignore the return value because the processing is done in‑place.
         _ = subtractor.Process(output, noiseProfile);
 
         return output.Slice(0, signal.Length);
@@ -50,7 +50,7 @@ public static class SpectralSubtractorExtensions
     /// has consistent magnitude across all frequency bins.
     /// </summary>
     /// <param name="subtractor">The spectral subtractor instance.</param>
-    /// <param name="noiseOnly">Noise-only sample to estimate profile from.</param>
+    /// <param name="noiseOnly">Noise‑only sample to estimate profile from.</param>
     /// <param name="normalize">Whether to normalize the profile to a target RMS level (default: true).</param>
     /// <returns>A normalized noise profile suitable for use with <see cref="SpectralSubtractor.Process"/>.</returns>
     /// <exception cref="ArgumentNullException">Thrown when <paramref name="subtractor"/> is null.</exception>
@@ -67,12 +67,11 @@ public static class SpectralSubtractorExtensions
         if (normalize)
         {
             // Normalize to target RMS of 0.1 (arbitrary but reasonable for audio)
-            const double targetRms = 0.1;
             double rms = Math.Sqrt(profile.Sum(p => p * p) / profile.Length);
 
-            if (rms > 1e-10)
+            if (rms > SpectralSubtractorExtensionsConstants.MinRmsThreshold)
             {
-                double scale = targetRms / rms;
+                double scale = SpectralSubtractorExtensionsConstants.TargetRms / rms;
                 for (int i = 0; i < profile.Length; i++)
                     profile[i] *= scale;
             }
@@ -87,22 +86,22 @@ public static class SpectralSubtractorExtensions
     /// </summary>
     /// <param name="subtractor">The spectral subtractor instance.</param>
     /// <param name="signal">The audio signal to denoise.</param>
-    /// <param name="noiseProfile">The pre-computed noise profile.</param>
+    /// <param name="noiseProfile">The pre‑computed noise profile.</param>
     /// <param name="silenceThreshold">Energy threshold below which frames are skipped (0.0 to 1.0).</param>
     /// <returns>The denoised signal.</returns>
     /// <exception cref="ArgumentNullException">Thrown when any parameter is null.</exception>
     /// <exception cref="ArgumentOutOfRangeException">Thrown when <paramref name="silenceThreshold"/> is outside valid range.</exception>
-    public static float[] ProcessWithSilenceDetection(this SpectralSubtractor subtractor, ReadOnlySpan<float> signal, double[] noiseProfile, float silenceThreshold = 0.01f)
+    public static float[] ProcessWithSilenceDetection(this SpectralSubtractor subtractor, ReadOnlySpan<float> signal, double[] noiseProfile, float silenceThreshold = SpectralSubtractorExtensionsConstants.DefaultSilenceThreshold)
     {
         ArgumentNullException.ThrowIfNull(subtractor);
         ArgumentNullException.ThrowIfNull(noiseProfile);
 
         if (silenceThreshold is < 0 or > 1)
-            throw new ArgumentOutOfRangeException(nameof(silenceThreshold), "Silence threshold must be between 0.0 and 1.0");
+            throw new ArgumentOutOfRangeException(nameof(silenceThreshold), SpectralSubtractorExtensionsConstants.SilenceThresholdRangeMessage);
 
         int bins = subtractor.FrameSize / 2 + 1;
         if (noiseProfile.Length != bins)
-            throw new ArgumentException("Noise profile bin count does not match frame size.");
+            throw new ArgumentException(SpectralSubtractorExtensionsConstants.NoiseProfileBinCountMismatchMessage);
 
         var output = new float[signal.Length];
         var normalization = new float[signal.Length];
@@ -135,7 +134,7 @@ public static class SpectralSubtractorExtensions
         }
 
         // undo the analysis+synthesis window weighting
-        const float normalizationThreshold = 1e-6f;
+        const float normalizationThreshold = SpectralSubtractorExtensionsConstants.NormalizationThreshold;
         for (int i = 0; i < output.Length; i++)
             if (normalization[i] > normalizationThreshold)
                 output[i] /= normalization[i];
