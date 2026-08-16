@@ -6,7 +6,7 @@ using Xunit;
 
 namespace SpectralDenoise.Tests
 {
-    public class SpectralSubtractorTests
+    public class SpectralSubtractorTests : ISpectralSubtractorTests
     {
         private const int SampleRate = 44100;
         private const int FrameSize = 1024;
