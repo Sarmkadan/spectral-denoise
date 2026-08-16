@@ -6,7 +6,7 @@ using Xunit;
 
 namespace SpectralDenoise.Tests
 {
-    public class SpectralSubtractorJsonExtensionsTests
+    public class SpectralSubtractorJsonExtensionsTests : ISpectralSubtractorJsonExtensionsTests
     {
         [Fact]
         public void ToJson_HappyPath_ReturnsJsonString()
