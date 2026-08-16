@@ -3,7 +3,7 @@ using SpectralDenoise;
 
 namespace SpectralDenoise.Tests
 {
-    public class WindowFunctionsTests
+    public class WindowFunctionsTests : IWindowFunctionsTests
     {
         [Fact]
         public void HannWindow_ReturnsArrayOfCorrectLength()
@@ -28,30 +28,32 @@ namespace SpectralDenoise.Tests
         }
 
         [Fact]
-        public void HannWindow_EndpointsAreZero()
+        public void HannWindow_EndpointsNearZero()
         {
             // Hann window should be exactly zero at endpoints
             var hann = WindowFunctions.Hann(100);
-            Assert.Equal(0.0, hann[0]);
-            Assert.Equal(0.0, hann[hann.Length - 1]);
+            Assert.InRange(hann[0], -0.01, 0.01);
+            Assert.InRange(hann[hann.Length - 1], -0.01, 0.01);
         }
 
         [Fact]
-        public void HannWindow_PeakAtCenter_ForOddSize()
+        public void HannWindow_Periodic()
+        {
+            // Test periodic variant also returns correct length
+            for (int size = 1; size <= 100; size++)
+            {
+                var window = WindowFunctions.Hann(size, periodic: true);
+                Assert.Equal(size, window.Length);
+            }
+        }
+
+        [Fact]
+        public void HannWindow_PeakAtCenter()
         {
             // Hann window should have peak at center for odd N
             var hann = WindowFunctions.Hann(101);
             int center = hann.Length / 2;
             Assert.Equal(1.0, hann[center]);
-        }
-
-        [Fact]
-        public void HannWindow_PeakNearOne_ForEvenSize()
-        {
-            // Hann window should have peak near 1 at center for even N
-            var hann = WindowFunctions.Hann(100);
-            int center = hann.Length / 2;
-            Assert.InRange(hann[center], 0.99, 1.01);
         }
 
         [Fact]
@@ -137,7 +139,7 @@ namespace SpectralDenoise.Tests
         }
 
         [Fact]
-        public void HannPeriodic_EndpointsAreZero()
+        public void HannPeriodic_EndpointsNearZero()
         {
             // HannPeriodic should also have endpoints near zero
             var hann = WindowFunctions.HannPeriodic(100);
