@@ -125,32 +125,32 @@ public static class SpectralSubtractorJsonExtensions
         // Sanitize mutable property values that could contain NaN/Infinity
         if (double.IsNaN(instance.Alpha) || double.IsInfinity(instance.Alpha))
         {
-            instance.Alpha = 2.0;
+            instance.Alpha = SpectralSubtractorJsonExtensionsConstants.DefaultAlpha;
         }
 
         if (double.IsNaN(instance.Beta) || double.IsInfinity(instance.Beta))
         {
-            instance.Beta = 0.02;
+            instance.Beta = SpectralSubtractorJsonExtensionsConstants.DefaultBeta;
         }
 
         if (double.IsNaN(instance.OverSubtractionFactor) || double.IsInfinity(instance.OverSubtractionFactor))
         {
-            instance.OverSubtractionFactor = 1.0;
+            instance.OverSubtractionFactor = SpectralSubtractorJsonExtensionsConstants.DefaultOverSubtractionFactor;
         }
 
         if (double.IsNaN(instance.SpectralFloor) || double.IsInfinity(instance.SpectralFloor))
         {
-            instance.SpectralFloor = 0.02;
+            instance.SpectralFloor = SpectralSubtractorJsonExtensionsConstants.DefaultSpectralFloor;
         }
 
         if (double.IsNaN(instance.AttackMs) || double.IsInfinity(instance.AttackMs))
         {
-            instance.AttackMs = 0.0;
+            instance.AttackMs = SpectralSubtractorJsonExtensionsConstants.DefaultAttackMs;
         }
 
         if (double.IsNaN(instance.ReleaseMs) || double.IsInfinity(instance.ReleaseMs))
         {
-            instance.ReleaseMs = 0.0;
+            instance.ReleaseMs = SpectralSubtractorJsonExtensionsConstants.DefaultReleaseMs;
         }
 
         // Mode is an enum, can't be NaN/Infinity
