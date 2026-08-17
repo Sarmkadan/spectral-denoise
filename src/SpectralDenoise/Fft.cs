@@ -23,8 +23,8 @@ public static class Fft
     public static void Forward(Complex[] buffer)
     {
         ArgumentNullException.ThrowIfNull(buffer);
-        if (buffer.Length == 0)
-            throw new ArgumentException("Buffer cannot be empty.", nameof(buffer));
+        if (buffer.Length < 2)
+            throw new ArgumentException("Buffer length must be at least 2.", nameof(buffer));
         if ((buffer.Length & (buffer.Length - 1)) != 0)
             throw new ArgumentException($"FFT length must be a power of two, got {buffer.Length}.", nameof(buffer));
         if (buffer.Length > MaxLength)
@@ -42,8 +42,8 @@ public static class Fft
     public static void Inverse(Complex[] buffer)
     {
         ArgumentNullException.ThrowIfNull(buffer);
-        if (buffer.Length == 0)
-            throw new ArgumentException("Buffer cannot be empty.", nameof(buffer));
+        if (buffer.Length < 2)
+            throw new ArgumentException("Buffer length must be at least 2.", nameof(buffer));
         if ((buffer.Length & (buffer.Length - 1)) != 0)
             throw new ArgumentException($"FFT length must be a power of two, got {buffer.Length}.", nameof(buffer));
         if (buffer.Length > MaxLength)
@@ -68,8 +68,8 @@ public static class Fft
         ArgumentNullException.ThrowIfNull(a);
 
         int n = a.Length;
-        if (n == 0)
-            throw new ArgumentException("Buffer cannot be empty.", nameof(a));
+        if (n < 2)
+            throw new ArgumentException("Buffer length must be at least 2.", nameof(a));
 
         if ((n & (n - 1)) != 0)
             throw new ArgumentException($"FFT length must be a power of two, got {n}.", nameof(a));
