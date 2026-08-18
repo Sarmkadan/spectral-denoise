@@ -5,7 +5,7 @@ using Xunit;
 
 namespace SpectralDenoise.Tests;
 
-public class WavFileTests : IDisposable
+public class WavFileTests : IWavFileTests
 {
     private const string TestFilesDirectory = "TestFiles";
     private readonly string _testFilesPath;
