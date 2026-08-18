@@ -5,7 +5,7 @@ using Xunit;
 
 namespace SpectralDenoise.Tests
 {
-    public class FftJsonExtensionsTests
+    public class FftJsonExtensionsTests : IFftJsonExtensionsTests
     {
         [Fact]
         public void ToJson_NullArray_ThrowsArgumentNullException()
