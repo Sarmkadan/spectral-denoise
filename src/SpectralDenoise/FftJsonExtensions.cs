@@ -118,8 +118,8 @@ public static class FftJsonExtensions
             double imaginary = array[i].Imaginary;
 
             // Replace NaN and Infinity with 0 to ensure valid JSON
-            real = double.IsNaN(real) || double.IsInfinity(real) ? 0.0 : real;
-            imaginary = double.IsNaN(imaginary) || double.IsInfinity(imaginary) ? 0.0 : imaginary;
+            real = double.IsNaN(real) || double.IsInfinity(real) ? FftJsonExtensionsConstants.NaNInfinityReplacement : real;
+            imaginary = double.IsNaN(imaginary) || double.IsInfinity(imaginary) ? FftJsonExtensionsConstants.NaNInfinityReplacement : imaginary;
 
             result[i] = new Complex(real, imaginary);
         }
