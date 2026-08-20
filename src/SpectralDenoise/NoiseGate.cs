@@ -24,14 +24,14 @@ public sealed class NoiseGate : IAudioProcessor
     /// <param name="releaseMs">Release time in milliseconds (time to close the gate, default: 100 ms).
     /// Must be in range [1, 5000] ms.</param>
     /// <exception cref="ArgumentOutOfRangeException">Thrown when sampleRate is not positive or attackMs/releaseMs are out of range.</exception>
-    public NoiseGate(int sampleRate, float thresholdDb = -45f, float attackMs = 5f, float releaseMs = 100f)
+    public NoiseGate(int sampleRate, float thresholdDb = NoiseGateConstants.DefaultThresholdDb, float attackMs = NoiseGateConstants.MinAttackMs, float releaseMs = NoiseGateConstants.MinReleaseMs)
     {
         ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(sampleRate, 0);
 
-        ArgumentOutOfRangeException.ThrowIfLessThan(attackMs, 0.1f);
-        ArgumentOutOfRangeException.ThrowIfGreaterThan(attackMs, 1000f);
+        ArgumentOutOfRangeException.ThrowIfLessThan(attackMs, NoiseGateConstants.MinAttackMs);
+        ArgumentOutOfRangeException.ThrowIfGreaterThan(attackMs, NoiseGateConstants.MaxAttackMs);
 
-        ArgumentOutOfRangeException.ThrowIfLessThan(releaseMs, 1f);
+        ArgumentOutOfRangeException.ThrowIfLessThan(releaseMs, NoiseGateConstants.MinReleaseMs);
         ArgumentOutOfRangeException.ThrowIfGreaterThan(releaseMs, 5000f);
 
         _thresholdDb = thresholdDb;
