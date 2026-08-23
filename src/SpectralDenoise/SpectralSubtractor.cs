@@ -716,4 +716,6 @@ public sealed class SpectralSubtractor : ISpectralProcessor, ISpectralSubtractor
             _analysisBuffer[i] = new Complex(frame[i] * _window[i], 0.0);
         Fft.Forward(_analysisBuffer);
     }
+
+    public override string ToString() => $"SpectralSubtractor {{ OverSubtractionFactor = {OverSubtractionFactor}, SpectralFloor = {SpectralFloor} }}";
 }
