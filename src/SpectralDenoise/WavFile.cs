@@ -7,7 +7,19 @@ using NAudio.Wave;
 
 namespace SpectralDenoise;
 
-public class WavFile : IAudioFileReader, IAudioFileWriter
+/// <summary>
+/// Provides methods for reading and writing WAV files in various formats.
+/// Supports PCM (16-bit) and IEEE float (32-bit) WAV files with sample rates from 8000 Hz to 192000 Hz and 1 to 8 channels.
+/// </summary>
+    /// <summary>
+    /// Provides methods for reading and writing WAV files in various formats.
+    /// Supports PCM (16-bit) and IEEE float (32-bit) WAV files with sample rates from 8000 Hz to 192000 Hz and 1 to 8 channels.
+    /// </summary>
+        /// <summary>
+    /// Provides methods for reading and writing WAV files in various formats.
+    /// Supports PCM (16-bit) and IEEE float (32-bit) WAV files with sample rates from 8000 Hz to 192000 Hz and 1 to 8 channels.
+    /// </summary>
+    public class WavFile : IAudioFileReader, IAudioFileWriter
 {
     private const int MaxSampleRate = 192_000;
     private const int MinSampleRate = 8_000;
