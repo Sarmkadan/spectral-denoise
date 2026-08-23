@@ -7,7 +7,11 @@ using System.Text.Json.Serialization.Metadata;
 namespace SpectralDenoise;
 
 /// <summary>
-/// Denoising mode for spectral processing
+/// Denoising mode for spectral processing. The algorithm consists of four phases:
+/// 1. Framing: Divide audio into overlapping frames for analysis.
+/// 2. Noise estimate: Calculate noise profile from quiet regions.
+/// 3. Subtraction: Reduce noise by modifying spectral magnitudes.
+/// 4. Overlap-add: Reconstruct audio from processed frames.
 /// </summary>
 public enum DenoiseMode
 {
