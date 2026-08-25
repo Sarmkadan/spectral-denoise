@@ -3,8 +3,16 @@ using SpectralDenoise;
 
 namespace SpectralDenoise.Tests
 {
+    /// <summary>
+    /// Unit tests for the Hann window factories and the constant-overlap-add (COLA)
+    /// helper methods provided by the WindowFunctions class.
+    /// </summary>
     public class WindowFunctionsTests : IWindowFunctionsTests
     {
+        /// <summary>
+        /// Verifies that Hann(size) returns an array containing exactly 'size'
+        /// elements for every requested size from 1 through 100.
+        /// </summary>
         [Fact]
         public void HannWindow_ReturnsArrayOfCorrectLength()
         {
@@ -16,6 +24,10 @@ namespace SpectralDenoise.Tests
             }
         }
 
+        /// <summary>
+        /// Verifies that the periodic variant of Hann(size) also returns an array
+        /// containing exactly 'size' elements for every requested size from 1 through 100.
+        /// </summary>
         [Fact]
         public void HannWindow_ReturnsArrayOfCorrectLength_WithPeriodic()
         {
@@ -27,6 +39,10 @@ namespace SpectralDenoise.Tests
             }
         }
 
+        /// <summary>
+        /// Verifies that the first and last samples of a 100-point symmetric Hann
+        /// window are approximately zero.
+        /// </summary>
         [Fact]
         public void HannWindow_EndpointsNearZero()
         {
@@ -36,6 +52,10 @@ namespace SpectralDenoise.Tests
             Assert.InRange(hann[hann.Length - 1], -0.01, 0.01);
         }
 
+        /// <summary>
+        /// Verifies that the periodic Hann variant produces arrays of the exact
+        /// requested length for every size from 1 through 100.
+        /// </summary>
         [Fact]
         public void HannWindow_Periodic()
         {
@@ -47,6 +67,10 @@ namespace SpectralDenoise.Tests
             }
         }
 
+        /// <summary>
+        /// Verifies that a 101-point symmetric Hann window attains its maximum
+        /// value of exactly 1.0 at its center sample.
+        /// </summary>
         [Fact]
         public void HannWindow_PeakAtCenter()
         {
@@ -56,6 +80,10 @@ namespace SpectralDenoise.Tests
             Assert.Equal(1.0, hann[center]);
         }
 
+        /// <summary>
+        /// Verifies that every sample of a 100-point Hann window lies within the
+        /// inclusive range [0, 1].
+        /// </summary>
         [Fact]
         public void HannWindow_AllValuesBetweenZeroAndOne()
         {
@@ -67,6 +95,10 @@ namespace SpectralDenoise.Tests
             }
         }
 
+        /// <summary>
+        /// Verifies that a 101-point Hann window is mirror-symmetric about its
+        /// center by comparing each sample against its mirrored counterpart.
+        /// </summary>
         [Fact]
         public void HannWindow_IsSymmetric()
         {
@@ -81,6 +113,10 @@ namespace SpectralDenoise.Tests
             }
         }
 
+        /// <summary>
+        /// Verifies that requesting a zero-length Hann window throws an
+        /// ArgumentException whose message references the size argument.
+        /// </summary>
         [Fact]
         public void HannWindow_SizeZero_ThrowsArgumentException()
         {
@@ -89,6 +125,10 @@ namespace SpectralDenoise.Tests
             Assert.Contains("size", exception.Message, StringComparison.OrdinalIgnoreCase);
         }
 
+        /// <summary>
+        /// Verifies that requesting a negative-size Hann window throws an
+        /// ArgumentException whose message references the size argument.
+        /// </summary>
         [Fact]
         public void HannWindow_NegativeSize_ThrowsArgumentException()
         {
@@ -97,6 +137,10 @@ namespace SpectralDenoise.Tests
             Assert.Contains("size", exception.Message, StringComparison.OrdinalIgnoreCase);
         }
 
+        /// <summary>
+        /// Verifies that a single-sample Hann window request succeeds, returning
+        /// one element whose value is NaN because the N-1 denominator evaluates to zero.
+        /// </summary>
         [Fact]
         public void HannWindow_SizeOne_DoesNotThrow()
         {
@@ -106,6 +150,10 @@ namespace SpectralDenoise.Tests
             Assert.True(double.IsNaN(window[0])); // Division by zero when period = 0
         }
 
+        /// <summary>
+        /// Verifies that the periodic and symmetric 100-point Hann windows differ
+        /// in at least one sample value.
+        /// </summary>
         [Fact]
         public void HannWindow_PeriodicVariant_HasDifferentValues()
         {
@@ -127,6 +175,10 @@ namespace SpectralDenoise.Tests
             Assert.True(differentCount > 0);
         }
 
+        /// <summary>
+        /// Verifies that HannPeriodic(size) returns an array containing exactly
+        /// 'size' elements for every requested size from 4 through 100.
+        /// </summary>
         [Fact]
         public void HannPeriodic_ReturnsArrayOfCorrectLength()
         {
@@ -138,6 +190,10 @@ namespace SpectralDenoise.Tests
             }
         }
 
+        /// <summary>
+        /// Verifies that the first and last samples of a 100-point periodic Hann
+        /// window are approximately zero.
+        /// </summary>
         [Fact]
         public void HannPeriodic_EndpointsNearZero()
         {
@@ -147,6 +203,10 @@ namespace SpectralDenoise.Tests
             Assert.InRange(hann[hann.Length - 1], -0.01, 0.01);
         }
 
+        /// <summary>
+        /// Verifies that normalizing an empty window span throws an ArgumentException
+        /// whose message indicates the input is empty.
+        /// </summary>
         [Fact]
         public void NormalizeForCola_WithEmptyWindow_ThrowsArgumentException()
         {
@@ -156,6 +216,10 @@ namespace SpectralDenoise.Tests
             Assert.Contains("empty", exception.Message, StringComparison.OrdinalIgnoreCase);
         }
 
+        /// <summary>
+        /// Verifies that normalizing with a hop of zero and with a negative hop
+        /// both throw an ArgumentException whose message requires a positive hop.
+        /// </summary>
         [Fact]
         public void NormalizeForCola_WithNonPositiveHop_ThrowsArgumentException()
         {
@@ -170,6 +234,10 @@ namespace SpectralDenoise.Tests
             Assert.Contains("positive", exception2.Message, StringComparison.OrdinalIgnoreCase);
         }
 
+        /// <summary>
+        /// Verifies that normalizing a 100-point Hann window with a hop of 50
+        /// returns a result having the same length as the input window.
+        /// </summary>
         [Fact]
         public void NormalizeForCola_ReturnsArrayOfSameLength()
         {
@@ -178,12 +246,19 @@ namespace SpectralDenoise.Tests
             Assert.Equal(window.Length, normalized.Length);
         }
 
+        /// <summary>
+        /// Verifies that the COLA check reports false when given an empty window span.
+        /// </summary>
         [Fact]
         public void SatisfiesCola_WithEmptyWindow_ReturnsFalse()
         {
             Assert.False(WindowFunctions.SatisfiesCola(ReadOnlySpan<double>.Empty, 1));
         }
 
+        /// <summary>
+        /// Verifies that the COLA check reports false for a hop of zero and for
+        /// a negative hop.
+        /// </summary>
         [Fact]
         public void SatisfiesCola_WithNonPositiveHop_ReturnsFalse()
         {
