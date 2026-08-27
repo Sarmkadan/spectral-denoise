@@ -3,8 +3,14 @@ using Xunit;
 
 namespace SpectralDenoise.Tests;
 
+/// <summary>
+/// Test suite for the NoiseProfile class.
+/// </summary>
 public class NoiseProfileTests
 {
+    /// <summary>
+    /// Tests that the NoiseProfile constructor creates an instance correctly when provided with valid parameters.
+    /// </summary>
     [Fact]
     public void Constructor_WithValidParameters_CreatesInstance()
     {
@@ -25,6 +31,9 @@ public class NoiseProfileTests
         Assert.Equal(hop, profile.Hop);
     }
 
+    /// <summary>
+    /// Tests that the NoiseProfile constructor throws ArgumentNullException when magnitudes parameter is null.
+    /// </summary>
     [Fact]
     public void Constructor_WithNullMagnitudes_ThrowsArgumentNullException()
     {
@@ -38,6 +47,9 @@ public class NoiseProfileTests
         Assert.Throws<ArgumentNullException>(() => new NoiseProfile(magnitudes!, sampleRate, frameSize, hop));
     }
 
+    /// <summary>
+    /// Tests that the NoiseProfile constructor throws ArgumentException when magnitudes array is empty.
+    /// </summary>
     [Fact]
     public void Constructor_WithEmptyMagnitudes_ThrowsArgumentException()
     {
@@ -52,6 +64,10 @@ public class NoiseProfileTests
         Assert.Contains("Magnitudes array cannot be empty", exception.Message);
     }
 
+    /// <summary>
+    /// Tests that the NoiseProfile constructor throws ArgumentException when sample rate is non-positive.
+    /// </summary>
+    /// <param name="invalidSampleRate">The non-positive sample rate to test.</param>
     [Theory]
     [InlineData(0)]
     [InlineData(-1)]
@@ -68,6 +84,10 @@ public class NoiseProfileTests
         Assert.Contains("Sample rate must be positive", exception.Message);
     }
 
+    /// <summary>
+    /// Tests that the NoiseProfile constructor throws ArgumentException when frame size is non-positive.
+    /// </summary>
+    /// <param name="invalidFrameSize">The non-positive frame size to test.</param>
     [Theory]
     [InlineData(0)]
     [InlineData(-1)]
@@ -84,6 +104,10 @@ public class NoiseProfileTests
         Assert.Contains("Frame size must be positive", exception.Message);
     }
 
+    /// <summary>
+    /// Tests that the NoiseProfile constructor throws ArgumentException when hop size is non-positive.
+    /// </summary>
+    /// <param name="invalidHop">The non-positive hop size to test.</param>
     [Theory]
     [InlineData(0)]
     [InlineData(-1)]
@@ -100,6 +124,9 @@ public class NoiseProfileTests
         Assert.Contains("Hop must be positive", exception.Message);
     }
 
+    /// <summary>
+    /// Tests that the NoiseProfile.FromEstimate method creates an instance correctly when provided with valid parameters.
+    /// </summary>
     [Fact]
     public void FromEstimate_WithValidParameters_CreatesInstance()
     {
@@ -119,6 +146,9 @@ public class NoiseProfileTests
         Assert.Equal(512, profile.Hop);
     }
 
+    /// <summary>
+    /// Tests that the NoiseProfile.FromEstimate method throws ArgumentNullException when magnitudes parameter is null.
+    /// </summary>
     [Fact]
     public void FromEstimate_WithNullMagnitudes_ThrowsArgumentNullException()
     {
@@ -131,6 +161,9 @@ public class NoiseProfileTests
         Assert.Throws<ArgumentNullException>(() => NoiseProfile.FromEstimate(magnitudes!, sampleRate, subtractor));
     }
 
+    /// <summary>
+    /// Tests that the NoiseProfile.FromEstimate method throws ArgumentNullException when subtractor parameter is null.
+    /// </summary>
     [Fact]
     public void FromEstimate_WithNullSubtractor_ThrowsArgumentNullException()
     {
@@ -143,6 +176,9 @@ public class NoiseProfileTests
         Assert.Throws<ArgumentNullException>(() => NoiseProfile.FromEstimate(magnitudes, sampleRate, subtractor!));
     }
 
+    /// <summary>
+    /// Tests that the NoiseProfile.ToJson method returns valid JSON when called with default settings.
+    /// </summary>
     [Fact]
     public void ToJson_WithDefaultSettings_ReturnsValidJson()
     {
@@ -162,6 +198,9 @@ public class NoiseProfileTests
         Assert.Contains("hop", json);
     }
 
+    /// <summary>
+    /// Tests that the NoiseProfile.ToJson method returns formatted JSON when called with indented settings.
+    /// </summary>
     [Fact]
     public void ToJson_WithIndentedSettings_ReturnsFormattedJson()
     {
@@ -177,6 +216,9 @@ public class NoiseProfileTests
         Assert.Contains("\n", json); // Should have newlines for formatting
     }
 
+    /// <summary>
+    /// Tests that the NoiseProfile.FromJson method correctly deserializes a valid JSON string into a NoiseProfile instance.
+    /// </summary>
     [Fact]
     public void FromJson_WithValidJson_ReturnsDeserializedProfile()
     {
@@ -195,6 +237,9 @@ public class NoiseProfileTests
         Assert.Equal(original.Hop, profile.Hop);
     }
 
+    /// <summary>
+    /// Tests that the NoiseProfile.FromJson method throws ArgumentNullException when json parameter is null.
+    /// </summary>
     [Fact]
     public void FromJson_WithNullJson_ThrowsArgumentNullException()
     {
@@ -205,6 +250,9 @@ public class NoiseProfileTests
         Assert.Throws<ArgumentNullException>(() => NoiseProfile.FromJson(json!));
     }
 
+    /// <summary>
+    /// Tests that the NoiseProfile.FromJson method throws JsonException when provided with invalid JSON.
+    /// </summary>
     [Fact]
     public void FromJson_WithInvalidJson_ThrowsJsonException()
     {
@@ -215,6 +263,9 @@ public class NoiseProfileTests
         Assert.Throws<System.Text.Json.JsonException>(() => NoiseProfile.FromJson(invalidJson));
     }
 
+    /// <summary>
+    /// Tests that the NoiseProfile.TryFromJson method returns true and a valid profile when provided with valid JSON.
+    /// </summary>
     [Fact]
     public void TryFromJson_WithValidJson_ReturnsTrueAndProfile()
     {
@@ -234,6 +285,9 @@ public class NoiseProfileTests
         Assert.Equal(original.Hop, profile.Hop);
     }
 
+    /// <summary>
+    /// Tests that the NoiseProfile.TryFromJson method returns false and null when provided with invalid JSON.
+    /// </summary>
     [Fact]
     public void TryFromJson_WithInvalidJson_ReturnsFalseAndNull()
     {
@@ -248,6 +302,9 @@ public class NoiseProfileTests
         Assert.Null(profile);
     }
 
+    /// <summary>
+    /// Tests that the NoiseProfile.TryFromJson method throws ArgumentNullException when json parameter is null.
+    /// </summary>
     [Fact]
     public void TryFromJson_WithNullJson_ThrowsArgumentNullException()
     {
@@ -258,6 +315,9 @@ public class NoiseProfileTests
         Assert.Throws<ArgumentNullException>(() => NoiseProfile.TryFromJson(json!, out _));
     }
 
+    /// <summary>
+    /// Tests that the NoiseProfile.Validate method does not throw when all parameters match the profile's properties.
+    /// </summary>
     [Fact]
     public void Validate_WithMatchingParameters_DoesNotThrow()
     {
@@ -270,6 +330,9 @@ public class NoiseProfileTests
         profile.Validate(44100, 1024, 256); // Should not throw
     }
 
+    /// <summary>
+    /// Tests that the NoiseProfile.Validate method throws InvalidOperationException when sample rate doesn't match.
+    /// </summary>
     [Fact]
     public void Validate_WithSampleRateMismatch_ThrowsInvalidOperationException()
     {
@@ -285,6 +348,9 @@ public class NoiseProfileTests
         Assert.Contains("44100", exception.Message);
     }
 
+    /// <summary>
+    /// Tests that the NoiseProfile.Validate method throws InvalidOperationException when frame size doesn't match.
+    /// </summary>
     [Fact]
     public void Validate_WithFrameSizeMismatch_ThrowsInvalidOperationException()
     {
@@ -300,6 +366,9 @@ public class NoiseProfileTests
         Assert.Contains("1024", exception.Message);
     }
 
+    /// <summary>
+    /// Tests that the NoiseProfile.Validate method throws InvalidOperationException when hop size doesn't match.
+    /// </summary>
     [Fact]
     public void Validate_WithHopMismatch_ThrowsInvalidOperationException()
     {
@@ -315,6 +384,9 @@ public class NoiseProfileTests
         Assert.Contains("256", exception.Message);
     }
 
+    /// <summary>
+    /// Tests that the NoiseProfile.Validate method throws InvalidOperationException when magnitude array length doesn't match expected length.
+    /// </summary>
     [Fact]
     public void Validate_WithMagnitudeLengthMismatch_ThrowsInvalidOperationException()
     {
@@ -330,6 +402,9 @@ public class NoiseProfileTests
         Assert.Contains("100", exception.Message); // Actual length
     }
 
+    /// <summary>
+    /// Tests that the NoiseProfile.Validate method does not throw when validated against a SpectralSubtractor with matching parameters.
+    /// </summary>
     [Fact]
     public void Validate_WithSpectralSubtractor_DoesNotThrow()
     {
