@@ -300,6 +300,33 @@ int hopSize = subtractor.GetHopSize();    // 256
 double[] window = subtractor.GetWindow();   // Hann window coefficients
 ```
 
+## NoiseProfile
+
+The `NoiseProfile` class represents a noise magnitude spectrum along with the audio metadata (sample rate, frame size, hop size) used during its estimation.
+It provides methods to serialize and deserialize the profile to/from JSON, and to validate that the profile matches expected processing parameters.
+
+Example usage:
+
+```csharp
+// Example: creating a noise profile from a hypothetical noise magnitude spectrum
+double[] magnitudes = new double[513]; // 513 bins for 1024-point FFT (real)
+for (int i = 0; i < magnitudes.Length; i++)
+{
+    magnitudes[i] = 0.1; // example noise floor
+}
+
+var noiseProfile = new NoiseProfile(magnitudes, sampleRate: 44100, frameSize: 1024, hop: 256);
+
+// Serialize to JSON (indented for readability)
+string json = noiseProfile.ToJson(indented: true);
+Console.WriteLine(json);
+
+// Deserialize from JSON
+NoiseProfile deserialized = NoiseProfile.FromJson(json);
+// Validate the deserialized profile matches the expected parameters
+deserialized.Validate(sampleRate: 44100, frameSize: 1024, hop: 256);
+```
+
 ## Layout
 
 ```
