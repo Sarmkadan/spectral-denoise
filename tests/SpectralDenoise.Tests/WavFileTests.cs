@@ -5,17 +5,27 @@ using Xunit;
 
 namespace SpectralDenoise.Tests;
 
+/// <summary>
+/// Contains tests for the WavFile class functionality including reading, writing, and validating WAV audio files.
+/// Tests cover mono and stereo audio handling, various sample rates, edge cases, and error conditions.
+/// </summary>
 public class WavFileTests : IWavFileTests
 {
     private const string TestFilesDirectory = "TestFiles";
     private readonly string _testFilesPath;
 
+    /// <summary>
+    /// Initializes a new instance of the WavFileTests class and creates a temporary directory for test files.
+    /// </summary>
     public WavFileTests()
     {
         _testFilesPath = Path.Combine(Directory.GetCurrentDirectory(), TestFilesDirectory);
         Directory.CreateDirectory(_testFilesPath);
     }
 
+    /// <summary>
+    /// Cleans up the temporary test files directory after tests complete.
+    /// </summary>
     public void Dispose()
     {
         try
@@ -31,6 +41,9 @@ public class WavFileTests : IWavFileTests
         }
     }
 
+    /// <summary>
+    /// Tests that writing and reading a mono WAV file preserves the original sample count and sample rate.
+    /// </summary>
     [Fact]
     public void ReadMono_WriteMono_PreservesSampleCountAndRate()
     {
@@ -55,6 +68,9 @@ public class WavFileTests : IWavFileTests
         Assert.Equal(sampleRate, readSampleRate);
     }
 
+    /// <summary>
+    /// Tests that writing and reading a mono WAV file preserves sample values within 16-bit quantization tolerance.
+    /// </summary>
     [Fact]
     public void ReadMono_WriteMono_PreservesSampleValuesWithinQuantization()
     {
@@ -94,6 +110,9 @@ public class WavFileTests : IWavFileTests
         }
     }
 
+    /// <summary>
+    /// Tests that reading a mono WAV file handles very small files gracefully (single sample).
+    /// </summary>
     [Fact]
     public void ReadMono_HandlesEmptyFileGracefully()
     {
@@ -112,6 +131,9 @@ public class WavFileTests : IWavFileTests
         Assert.Equal(sampleRate, readSampleRate);
     }
 
+    /// <summary>
+    /// Tests that writing and reading a mono WAV file with a single sample preserves the sample value and sample rate.
+    /// </summary>
     [Fact]
     public void ReadMono_WriteMono_WithSingleSample()
     {
@@ -130,6 +152,9 @@ public class WavFileTests : IWavFileTests
         Assert.Equal(sampleRate, readSampleRate);
     }
 
+    /// <summary>
+    /// Tests that writing and reading a mono WAV file with a large sample array preserves sample count and sample rate.
+    /// </summary>
     [Fact]
     public void ReadMono_WriteMono_WithLargeSampleArray()
     {
@@ -154,6 +179,9 @@ public class WavFileTests : IWavFileTests
         Assert.Equal(sampleRate, readSampleRate);
     }
 
+    /// <summary>
+/// Tests that writing and reading a mono WAV file preserves values outside the [-1.0, 1.0] range when using IEEE float format.
+    /// </summary>
     [Fact]
     public void ReadMono_WriteMono_WithClampedValues()
     {
@@ -182,6 +210,9 @@ public class WavFileTests : IWavFileTests
         Assert.Equal(2.0f, readSamples[6], 5);
     }
 
+    /// <summary>
+    /// Tests that writing a mono WAV file accepts negative sample rates without throwing exceptions (no validation in WavFile.WriteMono).
+    /// </summary>
     [Fact]
     public void WriteMono_HandlesNegativeSampleRate()
     {
@@ -196,6 +227,9 @@ public class WavFileTests : IWavFileTests
         Assert.Null(exception);
     }
 
+    /// <summary>
+    /// Tests that writing a mono WAV file accepts zero sample rates without throwing exceptions (no validation in WavFile.WriteMono).
+    /// </summary>
     [Fact]
     public void WriteMono_HandlesZeroSampleRate()
     {
@@ -210,6 +244,9 @@ public class WavFileTests : IWavFileTests
         Assert.Null(exception);
     }
 
+    /// <summary>
+    /// Tests that reading a stereo WAV file correctly reads both left and right channels and preserves sample rate.
+    /// </summary>
     [Fact]
     public void ReadStereo_ReadsTwoChannels()
     {
@@ -238,6 +275,9 @@ public class WavFileTests : IWavFileTests
         Assert.Equal(sampleRate, readSampleRate);
     }
 
+    /// <summary>
+    /// Tests that writing a stereo WAV file throws an InvalidDataException when left and right channels have different lengths.
+    /// </summary>
     [Fact]
     public void WriteStereo_RejectsDifferentLengthChannels()
     {
@@ -250,6 +290,9 @@ public class WavFileTests : IWavFileTests
         Assert.Throws<InvalidDataException>(() => WavFile.WriteStereo(testFilePath, left, right, 44100));
     }
 
+    /// <summary>
+    /// Tests that writing a stereo WAV file throws an exception when the left channel is null.
+    /// </summary>
     [Fact]
     public void WriteStereo_HandlesNullLeftChannel()
     {
@@ -264,6 +307,9 @@ public class WavFileTests : IWavFileTests
         Assert.NotNull(exception);
     }
 
+    /// <summary>
+    /// Tests that writing a stereo WAV file throws an exception when the right channel is null.
+    /// </summary>
     [Fact]
     public void WriteStereo_HandlesNullRightChannel()
     {
@@ -278,6 +324,9 @@ public class WavFileTests : IWavFileTests
         Assert.NotNull(exception);
     }
 
+    /// <summary>
+    /// Tests that writing a stereo WAV file accepts negative sample rates without throwing exceptions (no validation in WavFile.WriteStereo).
+    /// </summary>
     [Fact]
     public void WriteStereo_HandlesNegativeSampleRate()
     {
@@ -293,6 +342,9 @@ public class WavFileTests : IWavFileTests
         Assert.Null(exception);
     }
 
+    /// <summary>
+    /// Tests that writing a stereo WAV file accepts zero sample rates without throwing exceptions (no validation in WavFile.WriteStereo).
+    /// </summary>
     [Fact]
     public void WriteStereo_HandlesZeroSampleRate()
     {
@@ -308,6 +360,9 @@ public class WavFileTests : IWavFileTests
         Assert.Null(exception);
     }
 
+    /// <summary>
+    /// Tests that reading and writing mono WAV files works correctly across various common sample rates.
+    /// </summary>
     [Fact]
     public void ReadMono_HandlesDifferentSampleRates()
     {
@@ -337,6 +392,9 @@ public class WavFileTests : IWavFileTests
         }
     }
 
+    /// <summary>
+    /// Tests that a round-trip write/read operation preserves audio data integrity for a realistic sine wave signal.
+    /// </summary>
     [Fact]
     public void RoundTrip_PreservesAudioDataIntegrity()
     {
@@ -373,6 +431,9 @@ public class WavFileTests : IWavFileTests
         }
     }
 
+    /// <summary>
+    /// Tests that reading a mono WAV file handles silent audio (all zero samples) correctly.
+    /// </summary>
     [Fact]
     public void ReadMono_HandlesSilentAudio()
     {
@@ -398,6 +459,9 @@ public class WavFileTests : IWavFileTests
         }
     }
 
+    /// <summary>
+    /// Tests that reading a mono WAV file preserves maximum amplitude samples (1.0 and -1.0).
+    /// </summary>
     [Fact]
     public void ReadMono_HandlesMaximumAmplitude()
     {
@@ -434,6 +498,9 @@ public class WavFileTests : IWavFileTests
         }
     }
 
+    /// <summary>
+    /// Tests that reading a mono WAV file with unsupported bit depth (24-bit) throws a FormatException.
+    /// </summary>
     [Fact]
     public void ReadMono_ThrowsForUnsupportedBitDepth()
     {
@@ -476,6 +543,9 @@ public class WavFileTests : IWavFileTests
         Assert.Contains("Invalid WAV file", exception.Message);
     }
 
+    /// <summary>
+    /// Tests that reading a mono WAV file with unsupported encoding (ADPCM) throws a FormatException.
+    /// </summary>
     [Fact]
     public void ReadMono_ThrowsForUnsupportedEncoding()
     {
@@ -514,6 +584,9 @@ public class WavFileTests : IWavFileTests
         Assert.Contains("Invalid WAV file", exception.Message);
     }
 
+    /// <summary>
+    /// Tests that reading a mono WAV file with truncated data (declared size larger than actual file) throws an InvalidDataException.
+    /// </summary>
     [Fact]
     public void ReadMono_ThrowsForTruncatedFile()
     {
@@ -554,6 +627,9 @@ public class WavFileTests : IWavFileTests
         Assert.Contains("Declared WAV length exceeds file size", exception.Message);
     }
 
+    /// <summary>
+    /// Tests that reading a mono WAV file from a non-existent path throws a FileNotFoundException.
+    /// </summary>
     [Fact]
     public void ReadMono_ThrowsForNonExistentFile()
     {
@@ -564,6 +640,9 @@ public class WavFileTests : IWavFileTests
         Assert.Throws<FileNotFoundException>(() => WavFile.ReadMono(testFilePath));
     }
 
+    /// <summary>
+    /// Tests that reading a mono WAV file with a null path throws an ArgumentNullException.
+    /// </summary>
     [Fact]
     public void ReadMono_ThrowsForNullPath()
     {
@@ -571,6 +650,9 @@ public class WavFileTests : IWavFileTests
         Assert.Throws<ArgumentNullException>(() => WavFile.ReadMono(null!));
     }
 
+    /// <summary>
+    /// Tests that reading a mono WAV file as stereo throws an InvalidDataException.
+    /// </summary>
     [Fact]
     public void ReadStereo_ThrowsForNonStereoFile()
     {
@@ -591,6 +673,9 @@ public class WavFileTests : IWavFileTests
         Assert.Contains("must be stereo", exception.Message);
     }
 
+    /// <summary>
+    /// Tests that writing and reading a stereo WAV file preserves channel count and sample values within quantization tolerance.
+    /// </summary>
     [Fact]
     public void WriteStereo_PreservesChannelCountAndSampleValues()
     {
@@ -630,6 +715,9 @@ public class WavFileTests : IWavFileTests
         }
     }
 
+    /// <summary>
+    /// Tests that reading a mono WAV file with zero length audio handles the edge case without throwing a divide-by-zero exception.
+    /// </summary>
     [Fact]
     public void ReadMono_HandlesZeroLengthAudioWithoutDivideByZero()
     {
@@ -667,6 +755,9 @@ public class WavFileTests : IWavFileTests
         Assert.Equal(44100, sampleRate);
     }
 
+    /// <summary>
+    /// Tests that reading a mono WAV file handles a minimal file with just one sample correctly.
+    /// </summary>
     [Fact]
     public void ReadMono_HandlesVerySmallFile()
     {
@@ -707,6 +798,13 @@ public class WavFileTests : IWavFileTests
         Assert.Equal(44100, sampleRate);
     }
 
+    /// <summary>
+/// Tests that reading a mono WAV file handles extreme sample values (float.MaxValue and float.MinValue) correctly.
+/// </summary>
+/// <remarks>
+/// This test verifies that the WavFile class can handle and preserve extreme float values
+/// when writing and reading mono WAV files, ensuring no overflow or underflow occurs.
+/// </remarks>
     [Fact]
     public void ReadMono_HandlesExtremeSampleValues()
     {
@@ -734,6 +832,9 @@ public class WavFileTests : IWavFileTests
         Assert.Equal(float.MinValue, readSamples[1], 5);
     }
 
+    /// <summary>
+/// Tests that writing a mono WAV file with a null file path throws an ArgumentNullException.
+/// </summary>
     [Fact]
     public void WriteMono_HandlesNullPath()
     {
@@ -744,6 +845,9 @@ public class WavFileTests : IWavFileTests
         Assert.Throws<ArgumentNullException>(() => WavFile.WriteMono(null!, samples, 44100));
     }
 
+    /// <summary>
+/// Tests that writing a mono WAV file with a null samples array throws an ArgumentNullException.
+/// </summary>
     [Fact]
     public void WriteMono_HandlesNullSamples()
     {
@@ -754,6 +858,9 @@ public class WavFileTests : IWavFileTests
         Assert.Throws<ArgumentNullException>(() => WavFile.WriteMono(testFilePath, null!, 44100));
     }
 
+    /// <summary>
+/// Tests that writing a stereo WAV file with a null file path throws an ArgumentNullException.
+/// </summary>
     [Fact]
     public void WriteStereo_HandlesNullPath()
     {
@@ -765,6 +872,9 @@ public class WavFileTests : IWavFileTests
         Assert.Throws<ArgumentNullException>(() => WavFile.WriteStereo(null!, left, right, 44100));
     }
 
+    /// <summary>
+/// Tests that writing a stereo WAV file with a null left channel array throws an ArgumentNullException.
+/// </summary>
     [Fact]
     public void WriteStereo_HandlesNullLeft()
     {
@@ -776,6 +886,9 @@ public class WavFileTests : IWavFileTests
         Assert.Throws<ArgumentNullException>(() => WavFile.WriteStereo(testFilePath, null!, right, 44100));
     }
 
+    /// <summary>
+/// Tests that writing a stereo WAV file with a null right channel array throws an ArgumentNullException.
+/// </summary>
     [Fact]
     public void WriteStereo_HandlesNullRight()
     {
