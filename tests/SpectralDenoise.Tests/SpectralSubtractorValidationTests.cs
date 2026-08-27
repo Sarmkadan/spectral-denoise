@@ -4,8 +4,14 @@ using Xunit;
 
 namespace SpectralDenoise.Tests
 {
+    /// <summary>
+    /// Test suite for validating the SpectralSubtractor class and noise profile validation.
+    /// </summary>
     public class SpectralSubtractorValidationTests : ISpectralSubtractorValidationTests
     {
+        /// <summary>
+        /// Tests that validating a SpectralSubtractor with valid Alpha (≥1.0) and SpectralFloor ([0,1]) returns an empty validation error list.
+        /// </summary>
         [Fact]
         public void Validate_SpectralSubtractorWithValidProperties_ReturnsEmptyList()
         {
@@ -23,6 +29,9 @@ namespace SpectralDenoise.Tests
             Assert.Empty(result);
         }
 
+        /// <summary>
+        /// Tests that validating a SpectralSubtractor with Alpha < 1.0 returns a validation error list containing an error about Alpha.
+        /// </summary>
         [Fact]
         public void Validate_SpectralSubtractorWithAlphaLessThanOne_ReturnsError()
         {
@@ -42,6 +51,9 @@ namespace SpectralDenoise.Tests
             Assert.Contains("Alpha", result[0]);
         }
 
+        /// <summary>
+        /// Tests that validating a SpectralSubtractor with Alpha = 1.0 returns an empty validation error list.
+        /// </summary>
         [Fact]
         public void Validate_SpectralSubtractorWithAlphaEqualToOne_ReturnsEmptyList()
         {
@@ -59,6 +71,9 @@ namespace SpectralDenoise.Tests
             Assert.Empty(result);
         }
 
+        /// <summary>
+        /// Tests that validating a SpectralSubtractor with Alpha > 1.0 returns an empty validation error list.
+        /// </summary>
         [Fact]
         public void Validate_SpectralSubtractorWithAlphaGreaterThanOne_ReturnsEmptyList()
         {
@@ -76,6 +91,9 @@ namespace SpectralDenoise.Tests
             Assert.Empty(result);
         }
 
+        /// <summary>
+        /// Tests that validating a SpectralSubtractor with SpectralFloor < 0 returns a validation error list containing an error about SpectralFloor.
+        /// </summary>
         [Fact]
         public void Validate_SpectralSubtractorWithSpectralFloorLessThanZero_ReturnsError()
         {
@@ -95,6 +113,9 @@ namespace SpectralDenoise.Tests
             Assert.Contains("SpectralFloor", result[0]);
         }
 
+        /// <summary>
+        /// Tests that validating a SpectralSubtractor with SpectralFloor = 0 returns an empty validation error list.
+        /// </summary>
         [Fact]
         public void Validate_SpectralSubtractorWithSpectralFloorEqualToZero_ReturnsEmptyList()
         {
@@ -112,6 +133,9 @@ namespace SpectralDenoise.Tests
             Assert.Empty(result);
         }
 
+        /// <summary>
+        /// Tests that validating a SpectralSubtractor with SpectralFloor = 1 returns an empty validation error list.
+        /// </summary>
         [Fact]
         public void Validate_SpectralSubtractorWithSpectralFloorEqualToOne_ReturnsEmptyList()
         {
@@ -129,6 +153,9 @@ namespace SpectralDenoise.Tests
             Assert.Empty(result);
         }
 
+        /// <summary>
+        /// Tests that validating a SpectralSubtractor with SpectralFloor > 1 returns a validation error list containing an error about SpectralFloor.
+        /// </summary>
         [Fact]
         public void Validate_SpectralSubtractorWithSpectralFloorGreaterThanOne_ReturnsError()
         {
@@ -148,6 +175,9 @@ namespace SpectralDenoise.Tests
             Assert.Contains("SpectralFloor", result[0]);
         }
 
+        /// <summary>
+        /// Tests that validating a null SpectralSubtractor throws an ArgumentNullException.
+        /// </summary>
         [Fact]
         public void Validate_NullSpectralSubtractor_ThrowsArgumentNullException()
         {
@@ -158,6 +188,9 @@ namespace SpectralDenoise.Tests
             Assert.Throws<ArgumentNullException>(() => subtractor.Validate());
         }
 
+        /// <summary>
+        /// Tests that IsValid returns true for a valid SpectralSubtractor.
+        /// </summary>
         [Fact]
         public void IsValid_ValidSpectralSubtractor_ReturnsTrue()
         {
@@ -175,6 +208,9 @@ namespace SpectralDenoise.Tests
             Assert.True(result);
         }
 
+        /// <summary>
+        /// Tests that IsValid returns false for a SpectralSubtractor with invalid Alpha (<1.0).
+        /// </summary>
         [Fact]
         public void IsValid_InvalidAlpha_ReturnsFalse()
         {
@@ -192,6 +228,9 @@ namespace SpectralDenoise.Tests
             Assert.False(result);
         }
 
+        /// <summary>
+        /// Tests that IsValid returns false for a SpectralSubtractor with invalid SpectralFloor (>1.0).
+        /// </summary>
         [Fact]
         public void IsValid_InvalidSpectralFloor_ReturnsFalse()
         {
@@ -209,6 +248,9 @@ namespace SpectralDenoise.Tests
             Assert.False(result);
         }
 
+        /// <summary>
+        /// Tests that IsValid returns false for a null SpectralSubtractor.
+        /// </summary>
         [Fact]
         public void IsValid_NullSpectralSubtractor_ReturnsFalse()
         {
@@ -222,6 +264,9 @@ namespace SpectralDenoise.Tests
             Assert.False(result);
         }
 
+        /// <summary>
+        /// Tests that EnsureValid does not throw for a valid SpectralSubtractor.
+        /// </summary>
         [Fact]
         public void EnsureValid_ValidSpectralSubtractor_DoesNotThrow()
         {
@@ -236,6 +281,9 @@ namespace SpectralDenoise.Tests
             subtractor.EnsureValid(); // Should not throw
         }
 
+        /// <summary>
+        /// Tests that EnsureValid throws an ArgumentException for a SpectralSubtractor with invalid Alpha (<1.0).
+        /// </summary>
         [Fact]
         public void EnsureValid_InvalidAlpha_ThrowsArgumentException()
         {
@@ -252,6 +300,9 @@ namespace SpectralDenoise.Tests
             Assert.Contains("Alpha", exception.Message);
         }
 
+        /// <summary>
+        /// Tests that EnsureValid throws an ArgumentException for a SpectralSubtractor with invalid SpectralFloor (>1.0).
+        /// </summary>
         [Fact]
         public void EnsureValid_InvalidSpectralFloor_ThrowsArgumentException()
         {
@@ -268,6 +319,9 @@ namespace SpectralDenoise.Tests
             Assert.Contains("SpectralFloor", exception.Message);
         }
 
+        /// <summary>
+        /// Tests that EnsureValid throws an ArgumentNullException for a null SpectralSubtractor.
+        /// </summary>
         [Fact]
         public void EnsureValid_NullSpectralSubtractor_ThrowsArgumentNullException()
         {
@@ -278,6 +332,9 @@ namespace SpectralDenoise.Tests
             Assert.Throws<ArgumentNullException>(() => subtractor.EnsureValid());
         }
 
+        /// <summary>
+        /// Tests that validating a valid noise profile returns an empty validation error list.
+        /// </summary>
         [Fact]
         public void ValidateNoiseProfile_ValidNoiseProfile_ReturnsEmptyList()
         {
@@ -291,6 +348,9 @@ namespace SpectralDenoise.Tests
             Assert.Empty(result);
         }
 
+        /// <summary>
+        /// Tests that validating an empty noise profile array returns a validation error list containing an error about the array being empty.
+        /// </summary>
         [Fact]
         public void ValidateNoiseProfile_EmptyArray_ReturnsError()
         {
@@ -386,6 +446,9 @@ namespace SpectralDenoise.Tests
             Assert.Contains("must not be negative", result[0]);
         }
 
+        /// <summary>
+        /// Tests that IsValidNoiseProfile returns true for a valid noise profile.
+        /// </summary>
         [Fact]
         public void IsValidNoiseProfile_ValidNoiseProfile_ReturnsTrue()
         {
@@ -399,6 +462,9 @@ namespace SpectralDenoise.Tests
             Assert.True(result);
         }
 
+        /// <summary>
+        /// Tests that IsValidNoiseProfile returns false for an empty noise profile array.
+        /// </summary>
         [Fact]
         public void IsValidNoiseProfile_EmptyArray_ReturnsFalse()
         {
@@ -412,6 +478,9 @@ namespace SpectralDenoise.Tests
             Assert.False(result);
         }
 
+        /// <summary>
+        /// Tests that IsValidNoiseProfile returns false for a null noise profile.
+        /// </summary>
         [Fact]
         public void IsValidNoiseProfile_NullNoiseProfile_ReturnsFalse()
         {
@@ -425,6 +494,9 @@ namespace SpectralDenoise.Tests
             Assert.False(result);
         }
 
+        /// <summary>
+        /// Tests that IsValidNoiseProfile returns false for a noise profile containing invalid values (negative or NaN).
+        /// </summary>
         [Fact]
         public void IsValidNoiseProfile_WithInvalidValues_ReturnsFalse()
         {
