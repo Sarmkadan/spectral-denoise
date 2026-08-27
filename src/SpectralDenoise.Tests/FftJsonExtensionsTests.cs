@@ -5,8 +5,14 @@ using Xunit;
 
 namespace SpectralDenoise.Tests
 {
+    /// <summary>
+    /// Tests for the <see cref="FftJsonExtensions"/> class.
+    /// </summary>
     public class FftJsonExtensionsTests : IFftJsonExtensionsTests
     {
+        /// <summary>
+        /// Tests that passing a null array to ToJson throws an ArgumentNullException.
+        /// </summary>
         [Fact]
         public void ToJson_NullArray_ThrowsArgumentNullException()
         {
@@ -14,6 +20,9 @@ namespace SpectralDenoise.Tests
             Assert.Throws<ArgumentNullException>(() => FftJsonExtensions.ToJson(nullArray!));
         }
 
+        /// <summary>
+        /// Tests that ToJson converts a simple array of complex numbers to the expected JSON string.
+        /// </summary>
         [Fact]
         public void ToJson_SimpleArray_ReturnsExpectedJson()
         {
@@ -30,6 +39,9 @@ namespace SpectralDenoise.Tests
             Assert.Equal(expected, json);
         }
 
+        /// <summary>
+        /// Tests that ToJson with indented true returns JSON containing a newline character.
+        /// </summary>
         [Fact]
         public void ToJson_Indented_ReturnsIndentedJson()
         {
@@ -40,6 +52,10 @@ namespace SpectralDenoise.Tests
             Assert.Contains(Environment.NewLine, json);
         }
 
+        /// <summary>
+        /// Tests that FromJson throws an ArgumentException when given null or empty JSON string.
+        /// </summary>
+        /// <param name="json">The JSON string to parse, which is null or empty.</param>
         [Theory]
         [InlineData(null)]
         [InlineData("")]
@@ -48,6 +64,9 @@ namespace SpectralDenoise.Tests
             Assert.Throws<ArgumentException>(() => FftJsonExtensions.FromJson(json!));
         }
 
+        /// <summary>
+        /// Tests that FromJson correctly parses a valid JSON string into an array of complex numbers.
+        /// </summary>
         [Fact]
         public void FromJson_ValidJson_ReturnsArray()
         {
@@ -60,6 +79,9 @@ namespace SpectralDenoise.Tests
             Assert.Equal(new Complex(3.5, -4.25), result[1]);
         }
 
+        /// <summary>
+        /// Tests that FromJson returns null when given an invalid JSON string.
+        /// </summary>
         [Fact]
         public void FromJson_InvalidJson_ReturnsNull()
         {
@@ -68,6 +90,10 @@ namespace SpectralDenoise.Tests
             Assert.Null(result);
         }
 
+        /// <summary>
+        /// Tests that TryFromJson throws an ArgumentException when given null or empty JSON string.
+        /// </summary>
+        /// <param name="json">The JSON string to parse, which is null or empty.</param>
         [Theory]
         [InlineData(null)]
         [InlineData("")]
@@ -76,6 +102,9 @@ namespace SpectralDenoise.Tests
             Assert.Throws<ArgumentException>(() => FftJsonExtensions.TryFromJson(json!, out _));
         }
 
+        /// <summary>
+        /// Tests that TryFromJson successfully parses a valid JSON string and returns true with the parsed array.
+        /// </summary>
         [Fact]
         public void TryFromJson_ValidJson_ReturnsTrueAndArray()
         {
@@ -88,6 +117,9 @@ namespace SpectralDenoise.Tests
             Assert.Equal(new Complex(0, 0), result[0]);
         }
 
+        /// <summary>
+        /// Tests that TryFromJson returns false and null when given an invalid JSON string.
+        /// </summary>
         [Fact]
         public void TryFromJson_InvalidJson_ReturnsFalseAndNull()
         {
