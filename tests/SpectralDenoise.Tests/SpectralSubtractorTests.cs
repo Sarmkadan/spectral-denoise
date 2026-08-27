@@ -6,6 +6,11 @@ using Xunit;
 
 namespace SpectralDenoise.Tests
 {
+    /// <summary>
+    /// Test class for the SpectralSubtractor noise reduction algorithm.
+    /// Verifies constructor behavior, property defaults, noise profile estimation,
+    /// and audio processing under various conditions.
+    /// </summary>
     public class SpectralSubtractorTests : ISpectralSubtractorTests
     {
         private const int SampleRate = 44100;
@@ -38,12 +43,18 @@ namespace SpectralDenoise.Tests
         private static double Rms(float[] values) =>
             Math.Sqrt(values.Select(v => (double)v * v).Average());
 
+        /// <summary>
+        /// Verifies that constructing a SpectralSubtractor with a non-power-of-two frame size throws an ArgumentException.
+        /// </summary>
         [Fact]
         public void Constructor_NonPowerOfTwo_ThrowsArgumentException()
         {
             Assert.Throws<ArgumentException>(() => new SpectralSubtractor(frameSize: 1000, hop: Hop));
         }
 
+        /// <summary>
+        /// Verifies that the default property values of a newly constructed SpectralSubtractor match the expected constants.
+        /// </summary>
         [Fact]
         public void DefaultPropertyValues_AreAsExpected()
         {
@@ -57,6 +68,9 @@ namespace SpectralDenoise.Tests
             Assert.Equal(0.0, sub.ReleaseMs);
         }
 
+        /// <summary>
+        /// Verifies that calling ResetSmoothing on a SpectralSubtractor instance does not throw any exceptions.
+        /// </summary>
         [Fact]
         public void ResetSmoothing_DoesNotThrow()
         {
@@ -64,6 +78,9 @@ namespace SpectralDenoise.Tests
             sub.ResetSmoothing(); // should simply clear internal state without exception
         }
 
+        /// <summary>
+        /// Verifies that EstimateNoiseProfile throws an InvalidOperationException when the input signal is shorter than one frame.
+        /// </summary>
         [Fact]
         public void EstimateNoiseProfile_InsufficientLength_ThrowsInvalidOperationException()
         {
@@ -72,6 +89,9 @@ namespace SpectralDenoise.Tests
             Assert.Throws<InvalidOperationException>(() => sub.EstimateNoiseProfile(shortSignal));
         }
 
+        /// <summary>
+        /// Verifies that EstimateNoiseProfile returns positive values for all frequency bins when given white noise input.
+        /// </summary>
         [Fact]
         public void EstimateNoiseProfile_WhiteNoise_ReturnsPositiveValues()
         {
@@ -81,6 +101,9 @@ namespace SpectralDenoise.Tests
             Assert.All(profile, v => Assert.True(v > 0));
         }
 
+        /// <summary>
+        /// Verifies that EstimateNoiseProfile returns zeros for all frequency bins when given a silent input signal.
+        /// </summary>
         [Fact]
         public void EstimateNoiseProfile_Silence_ReturnsAllZeros()
         {
@@ -90,6 +113,9 @@ namespace SpectralDenoise.Tests
             Assert.All(profile, v => Assert.Equal(0.0, v, 12));
         }
 
+        /// <summary>
+        /// Verifies that Process throws an ArgumentException when the noise profile length does not match the expected FFT size.
+        /// </summary>
         [Fact]
         public void Process_MismatchedNoiseProfile_ThrowsArgumentException()
         {
@@ -99,6 +125,9 @@ namespace SpectralDenoise.Tests
             Assert.Throws<ArgumentException>(() => sub.Process(signal, wrongProfile));
         }
 
+        /// <summary>
+        /// Verifies that Process returns an empty array when the input signal is empty.
+        /// </summary>
         [Fact]
         public void Process_EmptySignal_ReturnsEmptyArray()
         {
@@ -109,6 +138,9 @@ namespace SpectralDenoise.Tests
             Assert.Empty(output);
         }
 
+        /// <summary>
+        /// Verifies that Process with OverSubtractionFactor set to zero and a zero noise profile leaves the signal unchanged (within numerical tolerance).
+        /// </summary>
         [Fact]
         public void Process_OverSubtractionFactorZero_NoAttenuation()
         {
@@ -129,6 +161,9 @@ namespace SpectralDenoise.Tests
             Assert.InRange(Math.Abs(outputRms - inputRms), 0, 1e-3);
         }
 
+        /// <summary>
+        /// Verifies that Process in Wiener mode reduces the overall RMS of a signal containing sine wave and additive white noise.
+        /// </summary>
         [Fact]
         public void Process_WienerMode_ReducesNoise()
         {
