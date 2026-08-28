@@ -358,6 +358,22 @@ tests.FromJson_WithValidJson_ReturnsDeserializedProfile();
 tests.ToJson_WithDefaultSettings_ReturnsValidJson();
 ```
 
+## SpectralSubtractorJsonExtensionsTests
+
+This test class verifies the JSON serialization and deserialization behavior of the `SpectralSubtractor` class. It covers scenarios such as successful round-trip serialization, handling of null inputs, empty JSON strings, and the safe `TryFromJson` pattern to prevent exceptions during configuration loading.
+
+```csharp
+// Example: Testing the ToJson method with a valid SpectralSubtractor
+var tests = new SpectralSubtractorJsonExtensionsTests();
+tests.ToJson_HappyPath_ReturnsJsonString();
+
+// Example: Testing the FromJson method with a null input returns null
+tests.FromJson_NullInput_ReturnsNull();
+
+// Example: Testing the TryFromJson method with a valid JSON string
+tests.TryFromJson_HappyPath_ReturnsTrue();
+```
+
 ## Layout
 
 ```
@@ -368,4 +384,3 @@ src/SpectralDenoise/
   Fft.cs                 radix-2 Cooley-Tukey
   WindowFunctions.cs     Hann window
   WavFile.cs             NAudio read/write helpers
-```
