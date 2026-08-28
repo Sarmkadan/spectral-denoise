@@ -344,6 +344,20 @@ var tests = new WavFileTests();
 tests.ReadMono_WriteMono_PreservesSampleCountAndRate();
 ```
 
+## NoiseProfileTests
+
+This test class verifies the behavior of the `NoiseProfile` class, including constructor validation, JSON serialization/deserialization, and parameter validation. It tests edge cases like null inputs, invalid parameters, and round-trip serialization.
+
+```csharp
+// Example: Testing constructor with valid parameters
+var tests = new NoiseProfileTests();
+tests.Constructor_WithValidParameters_CreatesInstance();
+
+// Example: Testing JSON round-trip
+tests.FromJson_WithValidJson_ReturnsDeserializedProfile();
+tests.ToJson_WithDefaultSettings_ReturnsValidJson();
+```
+
 ## Layout
 
 ```
