@@ -334,6 +334,16 @@ var tests = new FftJsonExtensionsTests();
 tests.ToJson_NullArray_ThrowsArgumentNullException();
 ```
 
+## WavFileTests
+
+This test class verifies the WAV file reading and writing functionality in the `WavFile` class. It covers mono and stereo audio handling, various sample rates, edge cases, and error conditions.
+
+```csharp
+// Example: Testing mono WAV file round-trip preserves sample count and rate
+var tests = new WavFileTests();
+tests.ReadMono_WriteMono_PreservesSampleCountAndRate();
+```
+
 ## Layout
 
 ```
