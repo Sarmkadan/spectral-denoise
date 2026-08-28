@@ -97,9 +97,6 @@ subtractor.EnsureValid();
 
 Each validation method provides detailed error messages listing all problems found.
 
-
-
-
 ### Example Compatible Configurations
 
 ```csharp
@@ -325,6 +322,16 @@ Console.WriteLine(json);
 NoiseProfile deserialized = NoiseProfile.FromJson(json);
 // Validate the deserialized profile matches the expected parameters
 deserialized.Validate(sampleRate: 44100, frameSize: 1024, hop: 256);
+```
+
+## FftJsonExtensionsTests
+
+This test class verifies the JSON serialization and deserialization behavior of the `FftJsonExtensions` class. It includes tests for handling null inputs, valid arrays, indented JSON, and error conditions.
+
+```csharp
+// Example: Testing the ToJson method with a null array
+var tests = new FftJsonExtensionsTests();
+tests.ToJson_NullArray_ThrowsArgumentNullException();
 ```
 
 ## Layout
