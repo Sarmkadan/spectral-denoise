@@ -1,4 +1,5 @@
 using System;
+using System.Diagnostics;
 
 namespace SpectralDenoise;
 
@@ -55,6 +56,12 @@ public sealed class AudioPipeline : IAudioProcessor
     public string? Name => _name;
 
     /// <summary>
+    /// Gets or sets a callback invoked after each processor completes, with the pipeline name or
+    /// processor type name, the zero-based processor index, and the elapsed processing time.
+    /// </summary>
+    public Action<string, int, TimeSpan>? OnProcessorCompleted { get; set; }
+
+    /// <summary>
     /// Process audio samples through the entire pipeline sequentially.
     /// </summary>
     /// <param name="samples">Input audio signal samples.</param>
@@ -70,9 +77,13 @@ public sealed class AudioPipeline : IAudioProcessor
 
         float[] current = samples;
 
-        foreach (var processor in _processors)
+        for (int index = 0; index < _processors.Length; index++)
         {
+            IAudioProcessor processor = _processors[index];
+            Stopwatch stopwatch = Stopwatch.StartNew();
             current = processor.Process(current, sampleRate);
+            stopwatch.Stop();
+            OnProcessorCompleted?.Invoke(_name ?? processor.GetType().Name, index, stopwatch.Elapsed);
         }
 
         return current;
