@@ -1,18 +1,29 @@
 using SpectralDenoise;
 
+const double DefaultNoiseSeconds = 0.5;
+const double DefaultAlpha = 2.0;
+const double DefaultFloor = 0.02;
+const int ExitSuccess = 0;
+const int ExitProcessingFailure = 1;
+const int ExitInvalidArguments = 2;
+const int ExitInputOutputConflict = 3;
+const int ExitInputFileNotFound = 4;
+const int ExitOutputDirectoryNotFound = 5;
+const int ExitOutputFileExists = 6;
+
 // denoise <input.wav> <output.wav> [--alpha VALUE] [--floor VALUE] [--noise-seconds VALUE]
 
 if (args.Length == 0 || args.Contains("--help") || args.Contains("-h"))
 {
     PrintUsage();
-    return 0;
+    return ExitSuccess;
 }
 
 string? inputPath = null;
 string? outputPath = null;
-double noiseSeconds = 0.5;
-double alpha = 2.0;
-double floor = 0.02;
+double noiseSeconds = DefaultNoiseSeconds;
+double alpha = DefaultAlpha;
+double floor = DefaultFloor;
 
 for (int i = 0; i < args.Length; i++)
 {
@@ -21,7 +32,7 @@ for (int i = 0; i < args.Length; i++)
     if (arg == "--help" || arg == "-h")
     {
         PrintUsage();
-        return 0;
+        return ExitSuccess;
     }
     else if (arg.StartsWith("--"))
     {
@@ -29,7 +40,7 @@ for (int i = 0; i < args.Length; i++)
         {
             Console.Error.WriteLine($"Error: Missing value for argument {arg}");
             PrintUsage();
-            return 2; // Exit code 2 for missing argument value
+            return ExitInvalidArguments;
         }
 
         string value = args[++i];
@@ -40,7 +51,7 @@ for (int i = 0; i < args.Length; i++)
                 {
                     Console.Error.WriteLine("Error: --alpha must be a positive number.");
                     PrintUsage();
-                    return 2; // Exit code 2 for invalid alpha value
+                    return ExitInvalidArguments;
                 }
                 break;
 
@@ -49,7 +60,7 @@ for (int i = 0; i < args.Length; i++)
                 {
                     Console.Error.WriteLine("Error: --floor must be a non-negative number.");
                     PrintUsage();
-                    return 2; // Exit code 2 for invalid floor value
+                    return ExitInvalidArguments;
                 }
                 break;
 
@@ -58,14 +69,14 @@ for (int i = 0; i < args.Length; i++)
                 {
                     Console.Error.WriteLine("Error: --noise-seconds must be a positive number.");
                     PrintUsage();
-                    return 2; // Exit code 2 for invalid noise-seconds value
+                    return ExitInvalidArguments;
                 }
                 break;
 
             default:
                 Console.Error.WriteLine($"Error: Unknown argument {arg}");
                 PrintUsage();
-                return 2; // Exit code 2 for unknown argument
+                return ExitInvalidArguments;
         }
     }
     else
@@ -83,7 +94,7 @@ for (int i = 0; i < args.Length; i++)
         {
             Console.Error.WriteLine("Error: Too many arguments provided.");
             PrintUsage();
-            return 2; // Exit code 2 for too many arguments
+            return ExitInvalidArguments;
         }
     }
 }
@@ -93,14 +104,14 @@ if (inputPath == null)
 {
     Console.Error.WriteLine("Error: Input file path is required.");
     PrintUsage();
-    return 2; // Exit code 2 for missing input file
+    return ExitInvalidArguments;
 }
 
 if (outputPath == null)
 {
     Console.Error.WriteLine("Error: Output file path is required.");
     PrintUsage();
-    return 2; // Exit code 2 for missing output file
+    return ExitInvalidArguments;
 }
 
 // Refuse to overwrite input file
@@ -108,7 +119,7 @@ if (string.Equals(inputPath, outputPath, StringComparison.OrdinalIgnoreCase))
 {
     Console.Error.WriteLine("Error: Output file cannot be the same as input file.");
     PrintUsage();
-    return 3; // Exit code 3 for attempting to overwrite input
+    return ExitInputOutputConflict;
 }
 
 // Validate file existence
@@ -116,7 +127,7 @@ if (!File.Exists(inputPath))
 {
     Console.Error.WriteLine($"Error: Input file not found: {inputPath}");
     PrintUsage();
-    return 4; // Exit code 4 for missing input file
+    return ExitInputFileNotFound;
 }
 
 // Validate output directory exists
@@ -125,7 +136,7 @@ if (!string.IsNullOrEmpty(outputDirectory) && !Directory.Exists(outputDirectory)
 {
     Console.Error.WriteLine($"Error: Output directory does not exist: {outputDirectory}");
     PrintUsage();
-    return 5; // Exit code 5 for invalid output directory
+    return ExitOutputDirectoryNotFound;
 }
 
 // Validate output file won't overwrite existing file without permission
@@ -134,7 +145,7 @@ if (File.Exists(outputPath))
     Console.Error.WriteLine($"Error: Output file already exists: {outputPath}");
     Console.Error.WriteLine("Use --force to overwrite (not implemented in this version).");
     PrintUsage();
-    return 6; // Exit code 6 for existing output file
+    return ExitOutputFileExists;
 }
 
 return Denoise(inputPath, outputPath, noiseSeconds, alpha, floor);
@@ -150,9 +161,9 @@ static void PrintUsage()
     Console.Error.WriteLine();
     Console.Error.WriteLine("options:");
     Console.Error.WriteLine(" --help, -h         Show this help message");
-    Console.Error.WriteLine(" --alpha VALUE        Spectral subtraction alpha parameter (default: 2.0)");
-    Console.Error.WriteLine(" --floor VALUE        Spectral subtraction floor parameter (default: 0.02)");
-    Console.Error.WriteLine(" --noise-seconds VALUE Seconds of audio to sample for noise estimation (default: 0.5)");
+    Console.Error.WriteLine($" --alpha VALUE        Spectral subtraction alpha parameter (default: {DefaultAlpha:0.0})");
+    Console.Error.WriteLine($" --floor VALUE        Spectral subtraction floor parameter (default: {DefaultFloor:0.00})");
+    Console.Error.WriteLine($" --noise-seconds VALUE Seconds of audio to sample for noise estimation (default: {DefaultNoiseSeconds:0.0})");
     Console.Error.WriteLine();
     Console.Error.WriteLine("examples:");
     Console.Error.WriteLine(" denoise input.wav output.wav");
@@ -187,7 +198,7 @@ static int Denoise(string inPath, string outPath, double noiseSeconds, double al
         if (noiseLen == 0)
         {
             Console.Error.WriteLine("Error: Not enough samples to estimate noise profile.");
-            return 1; // Exit code 1 for processing failure
+            return ExitProcessingFailure;
         }
 
         profile = sub.EstimateNoiseProfile(left.AsSpan(0, noiseLen));
@@ -207,7 +218,7 @@ static int Denoise(string inPath, string outPath, double noiseSeconds, double al
         Console.WriteLine($"wrote {outPath}");
         Console.WriteLine($"input RMS left: {Rms(left):F5}, right: {Rms(right):F5}");
         Console.WriteLine($"output RMS left: {Rms(cleanedLeft):F5}, right: {Rms(cleanedRight):F5}");
-        return 0;
+        return ExitSuccess;
     }
     catch (InvalidDataException)
     {
@@ -226,7 +237,7 @@ static int Denoise(string inPath, string outPath, double noiseSeconds, double al
         if (noiseLen == 0)
         {
             Console.Error.WriteLine("Error: Not enough samples to estimate noise profile.");
-            return 1; // Exit code 1 for processing failure
+            return ExitProcessingFailure;
         }
 
         profile = sub.EstimateNoiseProfile(samples.AsSpan(0, noiseLen));
@@ -239,12 +250,12 @@ static int Denoise(string inPath, string outPath, double noiseSeconds, double al
         Console.WriteLine($"wrote {outPath}");
         Console.WriteLine($"input RMS {Rms(samples):F5}");
         Console.WriteLine($"output RMS {Rms(cleaned):F5}");
-        return 0;
+        return ExitSuccess;
     }
     catch (Exception ex) when (ex is not InvalidDataException)
     {
         Console.Error.WriteLine($"Error: Failed to process audio: {ex.Message}");
-        return 1; // Exit code 1 for processing failure
+        return ExitProcessingFailure;
     }
 }
 
