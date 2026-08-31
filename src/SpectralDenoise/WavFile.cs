@@ -11,15 +11,7 @@ namespace SpectralDenoise;
 /// Provides methods for reading and writing WAV files in various formats.
 /// Supports PCM (16-bit) and IEEE float (32-bit) WAV files with sample rates from 8000 Hz to 192000 Hz and 1 to 8 channels.
 /// </summary>
-    /// <summary>
-    /// Provides methods for reading and writing WAV files in various formats.
-    /// Supports PCM (16-bit) and IEEE float (32-bit) WAV files with sample rates from 8000 Hz to 192000 Hz and 1 to 8 channels.
-    /// </summary>
-        /// <summary>
-    /// Provides methods for reading and writing WAV files in various formats.
-    /// Supports PCM (16-bit) and IEEE float (32-bit) WAV files with sample rates from 8000 Hz to 192000 Hz and 1 to 8 channels.
-    /// </summary>
-    public class WavFile : IAudioFileReader, IAudioFileWriter
+public class WavFile : IAudioFileReader, IAudioFileWriter
 {
     private const int MaxSampleRate = 192_000;
     private const int MinSampleRate = 8_000;
@@ -46,19 +38,6 @@ namespace SpectralDenoise;
     private static void ParseAndValidateHeader(string path)
     {
         ArgumentNullException.ThrowIfNull(path);
-
-        // Normalize and validate the path to prevent path traversal attacks
-        string normalizedPath = Path.GetFullPath(path);
-        string currentDir = Path.GetFullPath(".");
-        string rootDir = Path.GetFullPath("/");
-
-        if (!normalizedPath.StartsWith(currentDir, StringComparison.Ordinal) &&
-            !normalizedPath.StartsWith(rootDir, StringComparison.Ordinal))
-        {
-            throw new ArgumentException(
-                $"Path must be within the current directory or a subdirectory. Path: {path}",
-                nameof(path));
-        }
 
         var fileInfo = new FileInfo(path);
         if (!fileInfo.Exists)
