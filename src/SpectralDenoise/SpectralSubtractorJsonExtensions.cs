@@ -123,16 +123,6 @@ public static class SpectralSubtractorJsonExtensions
         ArgumentNullException.ThrowIfNull(instance);
 
         // Sanitize mutable property values that could contain NaN/Infinity
-        if (double.IsNaN(instance.Alpha) || double.IsInfinity(instance.Alpha))
-        {
-            instance.Alpha = SpectralSubtractorJsonExtensionsConstants.DefaultAlpha;
-        }
-
-        if (double.IsNaN(instance.Beta) || double.IsInfinity(instance.Beta))
-        {
-            instance.Beta = SpectralSubtractorJsonExtensionsConstants.DefaultBeta;
-        }
-
         if (double.IsNaN(instance.OverSubtractionFactor) || double.IsInfinity(instance.OverSubtractionFactor))
         {
             instance.OverSubtractionFactor = SpectralSubtractorJsonExtensionsConstants.DefaultOverSubtractionFactor;

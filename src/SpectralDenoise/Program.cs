@@ -189,8 +189,8 @@ static int Denoise(string inPath, string outPath, double noiseSeconds, double al
 
         sub = new SpectralSubtractor(frameSize: 1024, hop: 256)
         {
-            Alpha = alpha,
-            Beta = floor,
+            OverSubtractionFactor = alpha,
+            SpectralFloor = floor,
         };
 
         // Estimate noise profile from the first channel (assuming both channels have similar noise)
@@ -229,8 +229,8 @@ static int Denoise(string inPath, string outPath, double noiseSeconds, double al
 
         sub = new SpectralSubtractor(frameSize: 1024, hop: 256)
         {
-            Alpha = alpha,
-            Beta = floor,
+            OverSubtractionFactor = alpha,
+            SpectralFloor = floor,
         };
 
         int noiseLen = Math.Min(samples.Length, (int)(sr * noiseSeconds));

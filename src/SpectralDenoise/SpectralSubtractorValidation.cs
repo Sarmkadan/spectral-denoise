@@ -50,14 +50,14 @@ public static class SpectralSubtractorValidation
 
         var problems = new List<string>();
 
-        // Validate Alpha (over-subtraction factor)
+        // Validate OverSubtractionFactor
         // Should be >= 1.0 (1.0 = plain Boll, higher = more aggressive)
-        if (value.Alpha < 1.0)
+        if (value.OverSubtractionFactor < 1.0)
         {
             problems.Add(
                 ValidationMessages.FormatParameterError(
-                    nameof(value.Alpha),
-                    $"must be ≥ 1.0 (over-subtraction factor, got " + value.Alpha.ToString(CultureInfo.InvariantCulture) + ")"));
+                    "Alpha",
+                    $"must be ≥ 1.0 (over-subtraction factor, got " + value.OverSubtractionFactor.ToString(CultureInfo.InvariantCulture) + ")"));
         }
 
         // Validate SpectralFloor (spectral floor)
