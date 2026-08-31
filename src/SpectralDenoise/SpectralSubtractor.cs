@@ -141,7 +141,7 @@ public sealed class SpectralSubtractor : ISpectralProcessor, ISpectralSubtractor
         if (OverSubtractionFactor < 1.0)
         {
             problems.Add(
-                $"Alpha must be ≥ 1.0 (over-subtraction factor, got {OverSubtractionFactor:F4}).");
+                $"OverSubtractionFactor must be ≥ 1.0 (over-subtraction factor, got {OverSubtractionFactor:F4}).");
         }
 
         // Validate SpectralFloor (spectral floor)
