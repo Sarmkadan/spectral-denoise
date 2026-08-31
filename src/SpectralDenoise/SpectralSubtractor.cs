@@ -50,13 +50,6 @@ public sealed class SpectralSubtractor : ISpectralProcessor, ISpectralSubtractor
     private readonly Complex[] _analysisBuffer;
     private double[]? _noiseProfile;
 
-    /// <summary>Over‑subtraction factor. 1.0 = plain Boll. Higher = more aggressive.</summary>
-    public double Alpha { get; set; } = 2.0;
-
-    /// <summary>Spectral floor. Keeps a fraction of the original magnitude to
-    /// mask musical noise. Range 0..1.</summary>
-    public double Beta { get; set; } = 0.02;
-
     /// <summary>
     /// Over‑subtraction factor. Multiplies the noise profile during subtraction.
     /// Default = 1.0.
@@ -69,6 +62,22 @@ public sealed class SpectralSubtractor : ISpectralProcessor, ISpectralSubtractor
     /// Range: 0..1.
     /// </summary>
     public double SpectralFloor { get; set; } = 0.02;
+
+    /// <summary>Alias for <see cref="OverSubtractionFactor"/>.</summary>
+    [Obsolete("Use OverSubtractionFactor/SpectralFloor", false)]
+    public double Alpha
+    {
+        get => OverSubtractionFactor;
+        set => OverSubtractionFactor = value;
+    }
+
+    /// <summary>Alias for <see cref="SpectralFloor"/>.</summary>
+    [Obsolete("Use OverSubtractionFactor/SpectralFloor", false)]
+    public double Beta
+    {
+        get => SpectralFloor;
+        set => SpectralFloor = value;
+    }
 
     /// <summary>
     /// Denoising mode: SpectralSubtraction (classic) or Wiener (Wiener filter).
@@ -127,12 +136,12 @@ public sealed class SpectralSubtractor : ISpectralProcessor, ISpectralSubtractor
     {
         var problems = new List<string>();
 
-        // Validate Alpha (over-subtraction factor)
+        // Validate OverSubtractionFactor
         // Should be >= 1.0 (1.0 = plain Boll, higher = more aggressive)
-        if (Alpha < 1.0)
+        if (OverSubtractionFactor < 1.0)
         {
             problems.Add(
-                $"Alpha must be ≥ 1.0 (over-subtraction factor, got {Alpha:F4}).");
+                $"Alpha must be ≥ 1.0 (over-subtraction factor, got {OverSubtractionFactor:F4}).");
         }
 
         // Validate SpectralFloor (spectral floor)
