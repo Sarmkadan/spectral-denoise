@@ -11,7 +11,7 @@ const int ExitInputFileNotFound = 4;
 const int ExitOutputDirectoryNotFound = 5;
 const int ExitOutputFileExists = 6;
 
-// denoise <input.wav> <output.wav> [--alpha VALUE] [--floor VALUE] [--noise-seconds VALUE]
+// denoise <input.wav> <output.wav> [--alpha VALUE] [--floor VALUE] [--noise-seconds VALUE] [--mode MODE]
 
 if (args.Length == 0 || args.Contains("--help") || args.Contains("-h"))
 {
@@ -24,6 +24,7 @@ string? outputPath = null;
 double noiseSeconds = DefaultNoiseSeconds;
 double alpha = DefaultAlpha;
 double floor = DefaultFloor;
+DenoiseMode mode = DenoiseMode.SpectralSubtraction;
 
 for (int i = 0; i < args.Length; i++)
 {
@@ -68,6 +69,23 @@ for (int i = 0; i < args.Length; i++)
                 if (!double.TryParse(value, System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out noiseSeconds) || noiseSeconds <= 0)
                 {
                     Console.Error.WriteLine("Error: --noise-seconds must be a positive number.");
+                    PrintUsage();
+                    return ExitInvalidArguments;
+                }
+                break;
+
+            case "--mode":
+                if (value == "subtract")
+                {
+                    mode = DenoiseMode.SpectralSubtraction;
+                }
+                else if (value == "wiener")
+                {
+                    mode = DenoiseMode.Wiener;
+                }
+                else
+                {
+                    Console.Error.WriteLine($"Error: Unknown denoise mode '{value}'. Expected 'subtract' or 'wiener'.");
                     PrintUsage();
                     return ExitInvalidArguments;
                 }
@@ -148,12 +166,12 @@ if (File.Exists(outputPath))
     return ExitOutputFileExists;
 }
 
-return Denoise(inputPath, outputPath, noiseSeconds, alpha, floor);
+return Denoise(inputPath, outputPath, noiseSeconds, alpha, floor, mode);
 
 static void PrintUsage()
 {
     Console.Error.WriteLine("usage:");
-    Console.Error.WriteLine(" denoise <input.wav> <output.wav> [--alpha VALUE] [--floor VALUE] [--noise-seconds VALUE]");
+    Console.Error.WriteLine(" denoise <input.wav> <output.wav> [--alpha VALUE] [--floor VALUE] [--noise-seconds VALUE] [--mode MODE]");
     Console.Error.WriteLine();
     Console.Error.WriteLine("positional arguments:");
     Console.Error.WriteLine(" input.wav   Input WAV file path (required)");
@@ -164,15 +182,17 @@ static void PrintUsage()
     Console.Error.WriteLine($" --alpha VALUE        Spectral subtraction alpha parameter (default: {DefaultAlpha:0.0})");
     Console.Error.WriteLine($" --floor VALUE        Spectral subtraction floor parameter (default: {DefaultFloor:0.00})");
     Console.Error.WriteLine($" --noise-seconds VALUE Seconds of audio to sample for noise estimation (default: {DefaultNoiseSeconds:0.0})");
+    Console.Error.WriteLine(" --mode MODE          Denoising mode: subtract or wiener (default: subtract)");
     Console.Error.WriteLine();
     Console.Error.WriteLine("examples:");
     Console.Error.WriteLine(" denoise input.wav output.wav");
     Console.Error.WriteLine(" denoise input.wav output.wav --noise-seconds 1.0");
     Console.Error.WriteLine(" denoise input.wav output.wav --alpha 2.5 --floor 0.01");
+    Console.Error.WriteLine(" denoise input.wav output.wav --mode wiener");
     Console.Error.WriteLine(" denoise --help");
 }
 
-static int Denoise(string inPath, string outPath, double noiseSeconds, double alpha, double floor)
+static int Denoise(string inPath, string outPath, double noiseSeconds, double alpha, double floor, DenoiseMode mode)
 {
     IAudioFileReader reader = new WavFile();
     IAudioFileWriter writer = (IAudioFileWriter)reader;
@@ -191,6 +211,7 @@ static int Denoise(string inPath, string outPath, double noiseSeconds, double al
         {
             OverSubtractionFactor = alpha,
             SpectralFloor = floor,
+            Mode = mode,
         };
 
         // Estimate noise profile from the first channel (assuming both channels have similar noise)
@@ -231,6 +252,7 @@ static int Denoise(string inPath, string outPath, double noiseSeconds, double al
         {
             OverSubtractionFactor = alpha,
             SpectralFloor = floor,
+            Mode = mode,
         };
 
         int noiseLen = Math.Min(samples.Length, (int)(sr * noiseSeconds));
