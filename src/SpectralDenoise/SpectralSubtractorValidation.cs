@@ -70,6 +70,24 @@ public static class SpectralSubtractorValidation
                     $"must be in range [0, 1] (spectral floor, got " + value.SpectralFloor.ToString(CultureInfo.InvariantCulture) + "]"));
         }
 
+        // Validate frame size is a power of two
+        if (!IsPowerOfTwo(value.FrameSize))
+        {
+            problems.Add(
+                ValidationMessages.FormatParameterError(
+                    nameof(value.FrameSize),
+                    $"must be a power of two (got {value.FrameSize}, which is not)."));
+        }
+
+        // Validate frame size is within reasonable bounds
+        if (value.FrameSize < SpectralSubtractorConstants.MinFrameSize || value.FrameSize > SpectralSubtractorConstants.MaxFrameSize)
+        {
+            problems.Add(
+                ValidationMessages.FormatParameterError(
+                    nameof(value.FrameSize),
+                    $"should be between {SpectralSubtractorConstants.MinFrameSize} and {SpectralSubtractorConstants.MaxFrameSize} samples (got {value.FrameSize})."));
+        }
+
         return problems;
     }
 
