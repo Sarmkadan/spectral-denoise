@@ -8,8 +8,8 @@ namespace SpectralDenoise.Tests
     public class SpectralSubtractorExtensionsTests
     {
         private const int SampleRate = 44100;
-        private const int FrameSize = 8;   // power‑of‑two, small for fast tests
-        private const int Hop = 4;
+        private const int FrameSize = 128;   // power‑of‑two, small for fast tests
+        private const int Hop = 32;          // frameSize/4 for COLA with periodic Hann
 
         private static float[] CreateSignal(float value) =>
             Enumerable.Repeat(value, FrameSize * 2).ToArray();
@@ -87,6 +87,15 @@ namespace SpectralDenoise.Tests
         public void ProcessWithSilenceDetection_SkipsSilentFrames()
         {
             var sub = new SpectralSubtractor(FrameSize, Hop) { OverSubtractionFactor = 0.0 };
+            // Let's check the window
+            double sumSq = 0.0;
+            for (int i = 0; i < sub.Window.Length; i++)
+            {
+                sumSq += sub.Window[i] * sub.Window[i];
+            }
+            // This should be approximately Hop (which is 32)
+            Assert.InRange(sumSq, 31.0, 33.0);
+
             var signal = new float[FrameSize * 2];
             // first frame silent (zeros), second frame non‑silent (0.5)
             for (int i = FrameSize; i < signal.Length; i++) signal[i] = 0.5f;

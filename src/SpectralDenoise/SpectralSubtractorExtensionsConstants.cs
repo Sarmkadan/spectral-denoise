@@ -10,7 +10,7 @@ internal static class SpectralSubtractorExtensionsConstants
     // Argument validation messages
     public const string SignalEmptyMessage = "Signal cannot be empty.";
     public const string OutputEmptyMessage = "Output buffer cannot be empty.";
-    public const string OutputTooSmallMessage = "Output buffer must be at least as long as input signal.";
+    public const string OutputTooSmallMessage = "OutputTooSmall: Output buffer must be at least as long as input signal.";
     public const string NoiseProfileBinCountMismatchMessage = "Noise profile bin count does not match frame size.";
     public const string SilenceThresholdRangeMessage = "Silence threshold must be between 0.0 and 1.0";
 

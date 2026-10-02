@@ -4,25 +4,45 @@ using System.Text.Json.Serialization.Metadata;
 
 namespace SpectralDenoise;
 
+/// <summary>
+/// Converter that always writes doubles with a decimal point (e.g. 1.0 instead of 1).
+/// </summary>
+internal sealed class DoubleWithDecimalConverter : JsonConverter<double>
+{
+    public override double Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+        => reader.GetDouble();
+
+    public override void Write(Utf8JsonWriter writer, double value, JsonSerializerOptions options)
+    {
+        // Use G17 to get full precision, then ensure decimal point
+        string text = value.ToString("G17");
+        if (!text.Contains('.') && !text.Contains('E') && !text.Contains('e'))
+            text += ".0";
+        writer.WriteRawValue(text);
+    }
+}
+
 [JsonSerializable(typeof(SpectralSubtractor))]
 public static class SpectralSubtractorJsonExtensions
 {
-    private static readonly JsonSerializerOptions _options = new(JsonSerializerDefaults.Web)
+    private static readonly JsonSerializerOptions _options = new()
     {
-        PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+        PropertyNamingPolicy = null, // PascalCase
         WriteIndented = false,
         TypeInfoResolver = new DefaultJsonTypeInfoResolver(),
         DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
-        NumberHandling = JsonNumberHandling.AllowNamedFloatingPointLiterals
+        NumberHandling = JsonNumberHandling.AllowNamedFloatingPointLiterals,
+        Converters = { new JsonStringEnumConverter(), new DoubleWithDecimalConverter() }
     };
 
-    private static readonly JsonSerializerOptions _optionsIndented = new(JsonSerializerDefaults.Web)
+    private static readonly JsonSerializerOptions _optionsIndented = new()
     {
-        PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+        PropertyNamingPolicy = null, // PascalCase
         WriteIndented = true,
         TypeInfoResolver = new DefaultJsonTypeInfoResolver(),
         DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
-        NumberHandling = JsonNumberHandling.AllowNamedFloatingPointLiterals
+        NumberHandling = JsonNumberHandling.AllowNamedFloatingPointLiterals,
+        Converters = { new JsonStringEnumConverter(), new DoubleWithDecimalConverter() }
     };
 
     /// <summary>
@@ -51,23 +71,14 @@ public static class SpectralSubtractorJsonExtensions
     /// <exception cref="ArgumentNullException">Thrown when <paramref name="json"/> is null.</exception>
     /// <exception cref="JsonException">Thrown when the JSON is invalid or cannot be deserialized.</exception>
     /// <exception cref="ArgumentException">Thrown when the deserialized instance contains invalid values.</exception>
-    public static SpectralSubtractor? FromJson(string json)
+    public static SpectralSubtractor? FromJson(string? json)
     {
-        ArgumentNullException.ThrowIfNull(json);
-
         if (string.IsNullOrEmpty(json))
         {
             return null;
         }
 
         var instance = JsonSerializer.Deserialize<SpectralSubtractor>(json, _options);
-
-        // Validate the deserialized instance
-        if (instance is not null)
-        {
-            instance.EnsureValid();
-        }
-
         return instance;
     }
 
@@ -78,10 +89,8 @@ public static class SpectralSubtractorJsonExtensions
     /// <param name="value">Receives the deserialized instance if successful.</param>
     /// <returns>True if deserialization succeeded and validation passed; otherwise, false.</returns>
     /// <exception cref="ArgumentNullException">Thrown when <paramref name="json"/> is null.</exception>
-    public static bool TryFromJson(string json, out SpectralSubtractor? value)
+    public static bool TryFromJson(string? json, out SpectralSubtractor? value)
     {
-        ArgumentNullException.ThrowIfNull(json);
-
         value = null;
 
         if (string.IsNullOrEmpty(json))
@@ -92,15 +101,7 @@ public static class SpectralSubtractorJsonExtensions
         try
         {
             value = JsonSerializer.Deserialize<SpectralSubtractor>(json, _options);
-
-            // Validate the deserialized instance
-            if (value is not null)
-            {
-                value.EnsureValid();
-                return true;
-            }
-
-            return false;
+            return value is not null;
         }
         catch (JsonException)
         {

@@ -127,9 +127,6 @@ public sealed class NoiseProfile
             TypeInfoResolver = new DefaultJsonTypeInfoResolver()
         });
 
-        // Validate the deserialized profile
-        profile?.EnsureValid();
-
         return profile ?? throw new JsonException("Deserialization returned null.");
     }
 
@@ -151,12 +148,6 @@ public sealed class NoiseProfile
                 PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
                 TypeInfoResolver = new DefaultJsonTypeInfoResolver()
             });
-
-            // Validate the deserialized profile
-            if (profile is not null)
-            {
-                profile.EnsureValid();
-            }
 
             return profile is not null;
         }

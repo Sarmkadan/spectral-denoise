@@ -75,6 +75,7 @@ public class WavFile : IAudioFileReader, IAudioFileWriter
         int sampleRate = 0;
         int bitsPerSample = 0;
         long dataChunkSize = 0;
+        long dataChunkOffset = 0;
 
         while (offset + 8 <= span.Length)
         {
@@ -95,11 +96,22 @@ public class WavFile : IAudioFileReader, IAudioFileWriter
                 sampleRate = BinaryPrimitives.ReadInt32LittleEndian(span.Slice(offset + 4, 4));
                 // byteRate (4) and blockAlign (2) are skipped
                 bitsPerSample = BinaryPrimitives.ReadInt16LittleEndian(span.Slice(offset + 14, 2));
+
+                // Validate audio format immediately (before trying to find data chunk)
+                if (audioFormat != 1 && audioFormat != 3)
+                    throw new FormatException(
+                        $"Invalid WAV file: unsupported format code {audioFormat}. Only PCM (1) and IEEE float (3) are supported.");
+
+                // Validate bits per sample immediately
+                if (bitsPerSample != 16 && bitsPerSample != 32)
+                    throw new FormatException(
+                        $"Invalid WAV file: unsupported bits per sample {bitsPerSample}. Only 16 or 32 bits are supported.");
             }
             else if (chunkId == "data")
             {
                 dataFound = true;
                 dataChunkSize = chunkSize;
+                dataChunkOffset = offset;
                 // No need to parse further for validation
             }
 
@@ -113,6 +125,12 @@ public class WavFile : IAudioFileReader, IAudioFileWriter
             throw new InvalidDataException("fmt chunk not found.");
         if (!dataFound)
             throw new InvalidDataException("data chunk not found.");
+
+        // Validate that declared data chunk size doesn't exceed actual file size
+        // dataChunkOffset is where data bytes start; dataChunkSize is how many bytes are declared
+        if (dataFound && dataChunkOffset + dataChunkSize > span.Length)
+            throw new InvalidDataException(
+                $"Declared WAV length exceeds file size: data chunk claims {dataChunkSize} bytes at offset {dataChunkOffset}, but file is only {span.Length} bytes.");
 
         // Validate sample rate
         if (sampleRate < MinSampleRate || sampleRate > MaxSampleRate)
@@ -162,6 +180,14 @@ public class WavFile : IAudioFileReader, IAudioFileWriter
             var reader = new AudioFileReader(path);
             return reader;
         }
+        catch (FileNotFoundException)
+        {
+            throw; // Let FileNotFoundException propagate directly
+        }
+        catch (FormatException)
+        {
+            throw; // Let FormatException propagate directly
+        }
         catch (Exception ex) when (
             ex is EndOfStreamException ||
             ex is IndexOutOfRangeException ||
@@ -169,7 +195,7 @@ public class WavFile : IAudioFileReader, IAudioFileWriter
             ex is ArgumentException ||
             ex is IOException)
         {
-            // Wrap low‑level parsing errors in a consistent InvalidDataException
+            // Wrap low-level parsing errors in a consistent InvalidDataException
             throw new InvalidDataException($"Failed to read WAV file '{path}': {ex.Message}", ex);
         }
     }

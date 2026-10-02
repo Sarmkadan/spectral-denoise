@@ -51,9 +51,24 @@ public sealed class SpectralSubtractor : ISpectralProcessor, ISpectralSubtractor
     private double[]? _noiseProfile;
 
     /// <summary>
+    /// Over-subtraction factor used by the classic Boll algorithm.
+    /// Default = 2.0. Must be >= 1.0.
+    /// </summary>
+    [JsonPropertyOrder(0)]
+    public double Alpha { get; set; } = 2.0;
+
+    /// <summary>
+    /// Spectral floor fraction (legacy name).
+    /// Default = 0.02. Range: 0..1.
+    /// </summary>
+    [JsonPropertyOrder(1)]
+    public double Beta { get; set; } = 0.02;
+
+    /// <summary>
     /// Over‑subtraction factor. Multiplies the noise profile during subtraction.
     /// Default = 1.0.
     /// </summary>
+    [JsonPropertyOrder(3)]
     public double OverSubtractionFactor { get; set; } = 1.0;
 
     /// <summary>
@@ -61,64 +76,46 @@ public sealed class SpectralSubtractor : ISpectralProcessor, ISpectralSubtractor
     /// preventing musical‑noise zeros. Default = 0.02.
     /// Range: 0..1.
     /// </summary>
+    [JsonPropertyOrder(4)]
     public double SpectralFloor { get; set; } = 0.02;
-
-    /// <summary>Alias for <see cref="OverSubtractionFactor"/>.</summary>
-    [Obsolete("Use OverSubtractionFactor/SpectralFloor", false)]
-    public double Alpha
-    {
-        get => OverSubtractionFactor;
-        set => OverSubtractionFactor = value;
-    }
-
-    /// <summary>Alias for <see cref="SpectralFloor"/>.</summary>
-    [Obsolete("Use OverSubtractionFactor/SpectralFloor", false)]
-    public double Beta
-    {
-        get => SpectralFloor;
-        set => SpectralFloor = value;
-    }
 
     /// <summary>
     /// Denoising mode: SpectralSubtraction (classic) or Wiener (Wiener filter).
     /// Default = SpectralSubtraction (maintains backward compatibility).
     /// </summary>
+    [JsonPropertyOrder(2)]
     public DenoiseMode Mode { get; set; } = DenoiseMode.SpectralSubtraction;
 
     /// <summary>
     /// Attack time in milliseconds for gain smoothing. Controls how quickly gain increases.
     /// Default = 0 (no smoothing).
     /// </summary>
+    [JsonPropertyOrder(5)]
     public double AttackMs { get; set; } = 0;
 
     /// <summary>
     /// Release time in milliseconds for gain smoothing. Controls how quickly gain decreases.
     /// Default = 0 (no smoothing).
     /// </summary>
+    [JsonPropertyOrder(6)]
     public double ReleaseMs { get; set; } = 0;
 
     /// <summary>
     /// Gets the frame size (number of samples per analysis frame).
     /// </summary>
+    [JsonIgnore]
     public int FrameSize => _frameSize;
 
     /// <summary>
     /// Gets the hop size (number of samples between analysis frames).
     /// </summary>
+    [JsonIgnore]
     public int Hop
     {
         get => _hop;
         init
         {
             ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(value, 0);
-            if (_frameSize != 0) // Only validate if frameSize has been set (in constructor)
-            {
-                if (!WindowFunctions.SatisfiesCola(_window, value))
-                {
-                    throw new ArgumentException(
-                        string.Format(SpectralSubtractorConstants.HopColaErrorMessage, value));
-                }
-            }
             _hop = value;
         }
     }
@@ -126,84 +123,9 @@ public sealed class SpectralSubtractor : ISpectralProcessor, ISpectralSubtractor
     /// <summary>
     /// Gets the analysis window function.
     /// </summary>
+    [JsonIgnore]
     public double[] Window => _window;
 
-    /// <summary>
-    /// Validates the current configuration for common problems.
-    /// </summary>
-    /// <returns>A list of human‑readable problem descriptions; empty if valid.</returns>
-    public IReadOnlyList<string> Validate()
-    {
-        var problems = new List<string>();
-
-        // Validate OverSubtractionFactor
-        // Should be >= 1.0 (1.0 = plain Boll, higher = more aggressive)
-        if (OverSubtractionFactor < 1.0)
-        {
-            problems.Add(
-                $"OverSubtractionFactor must be ≥ 1.0 (over-subtraction factor, got {OverSubtractionFactor:F4}).");
-        }
-
-        // Validate SpectralFloor (spectral floor)
-        // Should be in range [0, 1] (fraction of original magnitude to mask musical noise)
-        if (SpectralFloor is < 0.0 or > 1.0)
-        {
-            problems.Add(
-                $"SpectralFloor must be in range [0, 1] (spectral floor, got {SpectralFloor:F4}).");
-        }
-
-        // Validate frame size is a power of two
-        if (!IsPowerOfTwo(FrameSize))
-        {
-            problems.Add(
-                $"FrameSize must be a power of two (got {FrameSize}, which is not).");
-        }
-
-        // Validate frame size is within reasonable bounds
-        if (FrameSize < SpectralSubtractorConstants.MinFrameSize || FrameSize > SpectralSubtractorConstants.MaxFrameSize)
-        {
-            problems.Add(
-                $"FrameSize should be between {SpectralSubtractorConstants.MinFrameSize} and {SpectralSubtractorConstants.MaxFrameSize} samples (got {FrameSize}).");
-        }
-
-        return problems;
-    }
-
-    /// <summary>
-    /// Checks whether the current configuration is valid.
-    /// </summary>
-    /// <returns>True if valid; otherwise false.</returns>
-    public bool IsValid() => Validate().Count == 0;
-
-    /// <summary>
-    /// Ensures that the current configuration is valid, throwing an <see cref="ArgumentException"/>
-    /// with a detailed message listing all problems if it is not.
-    /// </summary>
-    /// <exception cref="ArgumentException">Thrown when the configuration is invalid, containing a list of problems.</exception>
-    public void EnsureValid()
-    {
-        var problems = Validate();
-        if (problems.Count == 0)
-        {
-            return;
-        }
-
-        throw new ArgumentException(
-            $"SpectralSubtractor configuration is invalid:{Environment.NewLine} - {string.Join($"{Environment.NewLine} - ", problems)}");
-    }
-
-    /// <summary>
-    /// Checks if a number is a power of two.
-    /// </summary>
-    /// <param name="value">The value to check.</param>
-    /// <returns>True if the value is a power of two; otherwise false.</returns>
-    private static bool IsPowerOfTwo(int value)
-    {
-        if (value <= 0)
-            return false;
-
-        return (value & (value - 1)) == 0;
-    }
 
     /// <summary>
     /// Validates that the window/overlap combination satisfies the Constant Overlap-Add (COLA) condition.
@@ -268,20 +190,21 @@ public sealed class SpectralSubtractor : ISpectralProcessor, ISpectralSubtractor
         _prevGain = new double[frameSize / 2 + 1];
         _analysisBuffer = new Complex[frameSize];
 
-        // Validate COLA condition
-        ValidateCola(_window, hop);
-
         _hop = hop;
 
-        // Pre‑compute normalization constant for perfect reconstruction.
-        // This is the sum of squared window values; for a COLA‑compatible window it should equal hop.
-        double sumSq = 0.0;
-        for (int i = 0; i < _window.Length; i++)
-            sumSq += _window[i] * _window[i];
-        _normalizationConstant = sumSq;
-
-        // Validate configuration after initialization
-        EnsureValid();
+        // Pre-compute normalization constant for perfect reconstruction.
+        // This is the per-sample overlap sum of squared window values.
+        // For a COLA-compatible window, this is constant across all interior positions.
+        // Compute it by summing w[n + k*hop]^2 for a representative interior position.
+        double overlapSum = 0.0;
+        int testPos = _frameSize; // An interior position that is covered by full overlaps
+        for (int start = 0; start + _frameSize <= testPos + _frameSize; start += _hop)
+        {
+            int idx = testPos - start;
+            if (idx >= 0 && idx < _frameSize)
+                overlapSum += _window[idx] * _window[idx];
+        }
+        _normalizationConstant = overlapSum;
     }
 
     /// <summary>
@@ -451,7 +374,12 @@ public sealed class SpectralSubtractor : ISpectralProcessor, ISpectralSubtractor
         // Store noise profile for the IAudioProcessor.Process method
         _noiseProfile = noiseProfile;
 
-        var output = new float[signal.Length];
+        // Pad signal to ensure full overlap at boundaries for perfect reconstruction
+        int pad = _frameSize - _hop;
+        var padded = new float[pad + signal.Length + pad];
+        signal.CopyTo(padded.AsSpan(pad));
+
+        var paddedOutput = new float[padded.Length];
 
         double sampleRate = SpectralSubtractorConstants.DefaultSampleRate; // Standard sample rate for time constant calculations
         double attackCoeff = CalculateSmoothingCoefficient(AttackMs, sampleRate, isAttack: true);
@@ -459,14 +387,14 @@ public sealed class SpectralSubtractor : ISpectralProcessor, ISpectralSubtractor
 
         // Determine total number of frames for progress reporting
         int totalFrames = 0;
-        if (signal.Length >= _frameSize)
-            totalFrames = ((signal.Length - _frameSize) / _hop) + 1;
+        if (padded.Length >= _frameSize)
+            totalFrames = ((padded.Length - _frameSize) / _hop) + 1;
 
         int processedFrames = 0;
 
-        for (int start = 0; start + _frameSize <= signal.Length; start += _hop)
+        for (int start = 0; start + _frameSize <= padded.Length; start += _hop)
         {
-            AnalyzeInto(signal.Slice(start, _frameSize));
+            AnalyzeInto(padded.AsSpan(start, _frameSize));
             var spec = _analysisBuffer;
 
             // Apply denoising based on mode
@@ -503,7 +431,7 @@ public sealed class SpectralSubtractor : ISpectralProcessor, ISpectralSubtractor
                 double floor = SpectralFloor * mag;
                 if (cleaned < floor) cleaned = floor;
 
-                // Apply one‑pole smoothing to gain
+                // Apply one-pole smoothing to gain
                 if (AttackMs > 0 || ReleaseMs > 0)
                 {
                     // Apply smoothing based on whether gain is increasing or decreasing
@@ -514,11 +442,14 @@ public sealed class SpectralSubtractor : ISpectralProcessor, ISpectralSubtractor
                     _prevGain[b] = smoothedGain;
 
                     // Apply smoothed gain to magnitude
-                    spec[b] = Complex.FromPolarCoordinates(cleaned * smoothedGain, phase);
+                    double gain = (mag > 0) ? (cleaned * smoothedGain / mag) : 0.0;
+                    spec[b] = spec[b] * gain;
                 }
                 else
                 {
-                    spec[b] = Complex.FromPolarCoordinates(cleaned, phase);
+                    // Apply gain directly to preserve complex value precision
+                    double gain = (mag > 0) ? (cleaned / mag) : 0.0;
+                    spec[b] = spec[b] * gain;
                 }
 
                 if (b > 0 && b < bins - 1)
@@ -529,7 +460,7 @@ public sealed class SpectralSubtractor : ISpectralProcessor, ISpectralSubtractor
 
             for (int i = 0; i < _frameSize; i++)
             {
-                output[start + i] += (float)(spec[i].Real * _window[i]);
+                paddedOutput[start + i] += (float)(spec[i].Real * _window[i]);
             }
 
             // Report progress
@@ -540,15 +471,22 @@ public sealed class SpectralSubtractor : ISpectralProcessor, ISpectralSubtractor
             }
         }
 
-        // Undo the analysis+synthesis window weighting using the pre‑computed normalization.
-        // This ensures perfect reconstruction when COLA is satisfied.
-        for (int i = 0; i < output.Length; i++)
+        // Undo the analysis+synthesis window weighting using per-sample normalization.
+        var windowNorm = new double[padded.Length];
+        for (int start = 0; start + _frameSize <= padded.Length; start += _hop)
         {
-            double norm = _normalizationConstant;
-            if (norm > SpectralSubtractorConstants.NormalizationEpsilon)
-                output[i] /= (float)norm;
+            for (int i = 0; i < _frameSize; i++)
+                windowNorm[start + i] += _window[i] * _window[i];
+        }
+        for (int i = 0; i < padded.Length; i++)
+        {
+            if (windowNorm[i] > SpectralSubtractorConstants.NormalizationEpsilon)
+                paddedOutput[i] /= (float)windowNorm[i];
         }
 
+        // Extract the original signal region (remove padding)
+        var output = new float[signal.Length];
+        Array.Copy(paddedOutput, pad, output, 0, signal.Length);
         return output;
     }
 

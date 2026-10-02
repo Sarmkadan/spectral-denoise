@@ -222,20 +222,34 @@ public static class WindowFunctions
             return false;
         if (hop <= 0)
             return false;
+        if (hop > window.Length)
+            return false;
 
-        // For COLA, the sum of squared windows should be approximately equal to hop size
-        // after normalization
-        double sumSquared = 0.0;
-        for (int i = 0; i < window.Length; i++)
+        // Check the actual COLA condition: for all positions n in [0, hop),
+        // the sum of w(n + k*hop)^2 over all valid k must be constant.
+        int N = window.Length;
+        double? expectedSum = null;
+        const double tolerance = 1e-3;
+
+        for (int n = 0; n < hop; n++)
         {
-            sumSquared += window[i] * window[i];
+            double sum = 0.0;
+            for (int pos = n; pos < N; pos += hop)
+            {
+                sum += window[pos] * window[pos];
+            }
+
+            if (expectedSum is null)
+            {
+                expectedSum = sum;
+            }
+            else if (Math.Abs(sum - expectedSum.Value) > tolerance)
+            {
+                return false;
+            }
         }
 
-        // Allow a small tolerance for numerical precision
-        const double tolerance = 1e-3; // More lenient tolerance for normalized windows
-        double target = hop;
-
-        return Math.Abs(sumSquared - target) < tolerance;
+        return expectedSum.HasValue && expectedSum.Value > tolerance;
     }
 
     /// <summary>
