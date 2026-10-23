@@ -23,6 +23,68 @@ here (see Limitations). I would not put this near real audio yet.
 
 That is the Boll 1979 method, basically unchanged.
 
+## Getting started
+
+The library is not published to NuGet. Reference it from a project, along with
+NAudio (used for WAV I/O):
+
+```bash
+dotnet new console -n Denoise
+cd Denoise
+dotnet add reference ../spectral-denoise/src/SpectralDenoise/SpectralDenoise.csproj
+dotnet add package NAudio --version 2.3.0
+```
+
+Then replace `Program.cs` with the following. It loads `input.wav`, estimates
+the noise from the first 0.5 s, denoises with the default settings (1024-sample
+Hann frames, 256 hop, alpha 2.0, floor 0.02), and writes `output.wav`:
+
+```csharp
+using SpectralDenoise;
+
+// 1. Load a mono WAV. ReadMono downmixes stereo to mono and returns the file's sample rate.
+var (samples, sampleRate) = WavFile.ReadMono("input.wav");
+
+// 2. Estimate the noise profile from the first 0.5 s, assumed to be noise-only.
+var subtractor = new SpectralSubtractor(); // defaults: 1024/256 Hann STFT, alpha 2.0, floor 0.02
+int noiseLength = Math.Min(samples.Length, sampleRate / 2);
+double[] noiseProfile = subtractor.EstimateNoiseProfile(samples.AsSpan(0, noiseLength));
+
+// 3. Build the pipeline with default settings and denoise.
+var pipeline = new AudioPipeline(new ProfiledSubtractor(subtractor, noiseProfile));
+float[] denoised = pipeline.Process(samples, sampleRate);
+
+// 4. Write the result back (32-bit float mono WAV).
+WavFile.WriteMono("output.wav", denoised, sampleRate);
+
+Console.WriteLine($"wrote output.wav: {denoised.Length} samples @ {sampleRate} Hz");
+
+// Wraps SpectralSubtractor so the pipeline can call it through IAudioProcessor.
+// SpectralSubtractor.Process(float[], int) throws unless a noise profile was set first.
+sealed class ProfiledSubtractor(SpectralSubtractor subtractor, double[] noiseProfile) : IAudioProcessor
+{
+    public float[] Process(float[] samples, int sampleRate) => subtractor.Process(samples, noiseProfile);
+
+    public void Reset() => subtractor.Reset();
+}
+```
+
+If your samples are already in memory, skip step 1 and call
+`pipeline.Process(samples, sampleRate)` on your `float[]` directly.
+
+Notes on input:
+
+- **Sample rate:** `WavFile` accepts 8 kHz to 192 kHz (PCM or IEEE float, 16 or 32 bits).
+  The DSP does not resample or depend on the rate; `AudioPipeline` only validates that
+  the rate is positive. The noise window is `sampleRate / 2` samples, so the leading
+  0.5 s scales with the rate. The noise region must hold at least one 1024-sample frame,
+  or `EstimateNoiseProfile` throws.
+- **Mono:** `AudioPipeline` processes one `float[]` channel. `WavFile.ReadMono` averages
+  stereo down to mono, so the output is mono. To keep stereo, use `WavFile.ReadStereo`
+  and run each channel through the pipeline, as the CLI does. It estimates the profile
+  from the left channel and reuses it for the right. Write the result with
+  `WavFile.WriteStereo`, which outputs 16-bit PCM. `ReadStereo` throws on non-stereo input.
+
 ## Try it
 
 ```bash
