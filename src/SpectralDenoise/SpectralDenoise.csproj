@@ -7,8 +7,37 @@
     <Nullable>enable</Nullable>
   </PropertyGroup>
 
+  <PropertyGroup>
+    <!-- NuGet package metadata -->
+    <PackageId>SpectralDenoise</PackageId>
+    <Version>1.0.0</Version>
+    <Authors>Sarmkadan</Authors>
+    <Description>Broadband noise reduction for WAV audio via spectral subtraction (Boll 1979), using a hand-rolled radix-2 FFT and NAudio for I/O.</Description>
+    <PackageTags>audio;dsp;noise-reduction;fft;spectral-subtraction;wiener</PackageTags>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <PackageProjectUrl>https://github.com/Sarmkadan/spectral-denoise</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/Sarmkadan/spectral-denoise</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+    <RepositoryBranch>main</RepositoryBranch>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+
+    <!-- Deterministic builds + SourceLink -->
+    <Deterministic>true</Deterministic>
+    <PublishRepositoryUrl>true</PublishRepositoryUrl>
+    <EmbedUntrackedSources>true</EmbedUntrackedSources>
+    <DebugType>portable</DebugType>
+    <IncludeSymbols>true</IncludeSymbols>
+    <SymbolPackageFormat>snupkg</SymbolPackageFormat>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <None Include="../../README.md" Pack="true" PackagePath="/" />
+  </ItemGroup>
+
   <ItemGroup>
     <PackageReference Include="NAudio" Version="2.3.0" />
+    <PackageReference Include="Microsoft.SourceLink.GitHub" Version="10.0.402" PrivateAssets="All" />
   </ItemGroup>
 
 </Project>
