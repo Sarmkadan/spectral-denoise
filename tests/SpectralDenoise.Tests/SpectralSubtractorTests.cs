@@ -1,6 +1,7 @@
 using System;
 using System.Linq;
 using System.Numerics;
+using System.Reflection;
 using SpectralDenoise;
 using Xunit;
 
@@ -187,6 +188,116 @@ namespace SpectralDenoise.Tests
             double outputRms = Rms(output);
             // Wiener filter should reduce RMS compared to the noisy input
             Assert.True(outputRms < inputRms);
+        }
+
+        /// <summary>
+        /// Verifies that the default spectral floor (0.02) is inside [0, 1] and passes validation.
+        /// </summary>
+        [Fact]
+        public void SpectralFloor_Default_IsValidAndPassesValidation()
+        {
+            var sub = new SpectralSubtractor(FrameSize, Hop);
+
+            Assert.Equal(0.02, sub.SpectralFloor);
+            Assert.True(sub.IsValid());
+        }
+
+        /// <summary>
+        /// Verifies that SpectralFloor accepts the inclusive boundaries 0 and 1 and values just inside them.
+        /// </summary>
+        [Theory]
+        [InlineData(0.0)]
+        [InlineData(double.Epsilon)]
+        [InlineData(0.5)]
+        [InlineData(0.9999999999999999)] // Largest double below 1
+        [InlineData(1.0)]
+        public void SpectralFloor_ValueInsideRange_IsAccepted(double floor)
+        {
+            var sub = new SpectralSubtractor(FrameSize, Hop) { SpectralFloor = floor };
+
+            Assert.Equal(floor, sub.SpectralFloor);
+        }
+
+        /// <summary>
+        /// Verifies that SpectralFloor accepts the boundaries 0 and 1 in Wiener mode, where the floor still applies.
+        /// </summary>
+        [Theory]
+        [InlineData(0.0)]
+        [InlineData(1.0)]
+        public void SpectralFloor_WienerModeBoundary_IsAccepted(double floor)
+        {
+            var sub = new SpectralSubtractor(FrameSize, Hop) { Mode = DenoiseMode.Wiener, SpectralFloor = floor };
+
+            Assert.Equal(floor, sub.SpectralFloor);
+        }
+
+        /// <summary>
+        /// Verifies that SpectralFloor rejects values just outside [0, 1], values further outside, and non-finite values,
+        /// and that the exception names the property and the valid range.
+        /// </summary>
+        [Theory]
+        [InlineData(-double.Epsilon)]
+        [InlineData(-1e-12)]
+        [InlineData(-0.1)]
+        [InlineData(1.0000000000000002)] // Smallest double above 1
+        [InlineData(1.1)]
+        [InlineData(double.NaN)]
+        [InlineData(double.PositiveInfinity)]
+        [InlineData(double.NegativeInfinity)]
+        public void SpectralFloor_ValueOutsideRange_ThrowsNamingPropertyAndRange(double floor)
+        {
+            var ex = Assert.Throws<ArgumentOutOfRangeException>(
+                () => new SpectralSubtractor(FrameSize, Hop) { SpectralFloor = floor });
+
+            Assert.Equal("SpectralFloor", ex.ParamName);
+            Assert.Contains("SpectralFloor", ex.Message);
+            Assert.Contains("[0, 1]", ex.Message);
+        }
+
+        /// <summary>
+        /// Verifies that SpectralFloor values outside [0, 1] are rejected in Wiener mode too.
+        /// </summary>
+        [Theory]
+        [InlineData(-0.01)]
+        [InlineData(1.01)]
+        public void SpectralFloor_WienerModeOutOfRange_Throws(double floor)
+        {
+            Assert.Throws<ArgumentOutOfRangeException>(
+                () => new SpectralSubtractor(FrameSize, Hop) { Mode = DenoiseMode.Wiener, SpectralFloor = floor });
+        }
+
+        /// <summary>
+        /// Verifies that a rejected assignment after construction leaves the previously valid spectral floor unchanged.
+        /// </summary>
+        [Fact]
+        public void SpectralFloor_InvalidAssignmentAfterConstruction_KeepsPreviousValue()
+        {
+            var sub = new SpectralSubtractor(FrameSize, Hop) { SpectralFloor = 0.5 };
+
+            Assert.Throws<ArgumentOutOfRangeException>(() => sub.SpectralFloor = 2.0);
+
+            Assert.Equal(0.5, sub.SpectralFloor);
+        }
+
+        /// <summary>
+        /// Verifies that Process does not re-validate SpectralFloor per frame. An out-of-range value written straight to the
+        /// backing field (bypassing the setter) must be consumed across many frames without throwing; validation only runs on assignment.
+        /// </summary>
+        [Fact]
+        public void Process_DoesNotRevalidateSpectralFloorPerFrame()
+        {
+            var sub = new SpectralSubtractor(FrameSize, Hop);
+            var field = typeof(SpectralSubtractor).GetField("_spectralFloor", BindingFlags.NonPublic | BindingFlags.Instance);
+            Assert.NotNull(field);
+            field!.SetValue(sub, 1.5);
+
+            var noiseProfile = new double[FrameSize / 2 + 1];
+            Array.Fill(noiseProfile, 0.01);
+            var signal = GenerateSine(FrameSize * 16);
+
+            var output = sub.Process(signal, noiseProfile);
+
+            Assert.Equal(signal.Length, output.Length);
         }
     }
 }

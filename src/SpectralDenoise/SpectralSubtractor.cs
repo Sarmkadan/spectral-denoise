@@ -49,6 +49,7 @@ public sealed class SpectralSubtractor : ISpectralProcessor, ISpectralSubtractor
     private readonly double _normalizationConstant; // Sum of squared window values (COLA normalization)
     private readonly Complex[] _analysisBuffer;
     private double[]? _noiseProfile;
+    private double _spectralFloor = SpectralSubtractorConstants.DefaultSpectralFloor;
 
     /// <summary>
     /// Over-subtraction factor used by the classic Boll algorithm.
@@ -74,10 +75,23 @@ public sealed class SpectralSubtractor : ISpectralProcessor, ISpectralSubtractor
     /// <summary>
     /// Spectral floor. Minimum fraction of the original magnitude kept,
     /// preventing musical‑noise zeros. Default = 0.02.
-    /// Range: 0..1.
+    /// Range: [0, 1] inclusive (the minimum gain applied to each bin).
+    /// Validated on assignment: NaN, infinities and values outside [0, 1] throw
+    /// <see cref="ArgumentOutOfRangeException"/>, so <see cref="Process(ReadOnlySpan{float}, double[], IProgress{double}?)"/> never re-checks it.
     /// </summary>
+    /// <exception cref="ArgumentOutOfRangeException">Thrown when the value is outside [0, 1] or not a number.</exception>
     [JsonPropertyOrder(4)]
-    public double SpectralFloor { get; set; } = 0.02;
+    public double SpectralFloor
+    {
+        get => _spectralFloor;
+        set
+        {
+            if (!SpectralSubtractorValidation.IsValidSpectralFloor(value))
+                throw new ArgumentOutOfRangeException(nameof(SpectralFloor), value, SpectralSubtractorConstants.SpectralFloorRangeMessage);
+
+            _spectralFloor = value;
+        }
+    }
 
     /// <summary>
     /// Denoising mode: SpectralSubtraction (classic) or Wiener (Wiener filter).

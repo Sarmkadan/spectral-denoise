@@ -92,28 +92,6 @@ namespace SpectralDenoise.Tests
         }
 
         /// <summary>
-        /// Tests that validating a SpectralSubtractor with SpectralFloor < 0 returns a validation error list containing an error about SpectralFloor.
-        /// </summary>
-        [Fact]
-        public void Validate_SpectralSubtractorWithSpectralFloorLessThanZero_ReturnsError()
-        {
-            // Arrange
-            var subtractor = new SpectralSubtractor(1024, 256)
-            {
-                Alpha = 2.0,
-                SpectralFloor = -0.1
-            };
-
-            // Act
-            var result = subtractor.Validate();
-
-            // Assert
-            Assert.Single(result);
-            Assert.Contains("must be in range [0, 1]", result[0]);
-            Assert.Contains("SpectralFloor", result[0]);
-        }
-
-        /// <summary>
         /// Tests that validating a SpectralSubtractor with SpectralFloor = 0 returns an empty validation error list.
         /// </summary>
         [Fact]
@@ -151,28 +129,6 @@ namespace SpectralDenoise.Tests
 
             // Assert
             Assert.Empty(result);
-        }
-
-        /// <summary>
-        /// Tests that validating a SpectralSubtractor with SpectralFloor > 1 returns a validation error list containing an error about SpectralFloor.
-        /// </summary>
-        [Fact]
-        public void Validate_SpectralSubtractorWithSpectralFloorGreaterThanOne_ReturnsError()
-        {
-            // Arrange
-            var subtractor = new SpectralSubtractor(1024, 256)
-            {
-                Alpha = 2.0,
-                SpectralFloor = 1.1
-            };
-
-            // Act
-            var result = subtractor.Validate();
-
-            // Assert
-            Assert.Single(result);
-            Assert.Contains("must be in range [0, 1]", result[0]);
-            Assert.Contains("SpectralFloor", result[0]);
         }
 
         /// <summary>
@@ -219,26 +175,6 @@ namespace SpectralDenoise.Tests
             {
                 Alpha = 0.5,
                 SpectralFloor = 0.02
-            };
-
-            // Act
-            var result = subtractor.IsValid();
-
-            // Assert
-            Assert.False(result);
-        }
-
-        /// <summary>
-        /// Tests that IsValid returns false for a SpectralSubtractor with invalid SpectralFloor (>1.0).
-        /// </summary>
-        [Fact]
-        public void IsValid_InvalidSpectralFloor_ReturnsFalse()
-        {
-            // Arrange
-            var subtractor = new SpectralSubtractor(1024, 256)
-            {
-                Alpha = 2.0,
-                SpectralFloor = 1.1
             };
 
             // Act
@@ -298,25 +234,6 @@ namespace SpectralDenoise.Tests
             var exception = Assert.Throws<ArgumentException>(() => subtractor.EnsureValid());
             Assert.Contains("SpectralSubtractor is invalid", exception.Message);
             Assert.Contains("Alpha", exception.Message);
-        }
-
-        /// <summary>
-        /// Tests that EnsureValid throws an ArgumentException for a SpectralSubtractor with invalid SpectralFloor (>1.0).
-        /// </summary>
-        [Fact]
-        public void EnsureValid_InvalidSpectralFloor_ThrowsArgumentException()
-        {
-            // Arrange
-            var subtractor = new SpectralSubtractor(1024, 256)
-            {
-                Alpha = 2.0,
-                SpectralFloor = 1.1
-            };
-
-            // Act & Assert
-            var exception = Assert.Throws<ArgumentException>(() => subtractor.EnsureValid());
-            Assert.Contains("SpectralSubtractor is invalid", exception.Message);
-            Assert.Contains("SpectralFloor", exception.Message);
         }
 
         /// <summary>

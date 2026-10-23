@@ -14,7 +14,7 @@ Gets or sets the smoothing coefficient for spectral gain application (range `[0,
 Gets or sets the over-subtraction factor applied during spectral subtraction (range `[0, 1]`). Higher values suppress more noise but risk introducing artifacts. Default is `1.0`.
 
 ### `public double SpectralFloor`
-Gets or sets the minimum magnitude threshold for spectral components (in dB). Components below this level are floored to prevent excessive attenuation. Default is `-80.0`.
+Gets or sets the minimum gain: the fraction of each bin's original magnitude that is always kept. Default is `0.02`. Must be in `[0, 1]`; NaN, infinities and out-of-range values throw `ArgumentOutOfRangeException` on assignment (so an invalid value cannot be set via an object initializer either).
 
 ### `public DenoiseMode Mode`
 Gets or sets the denoising mode, selecting between aggressive, moderate, or conservative spectral subtraction strategies. Default is `DenoiseMode.Moderate`.

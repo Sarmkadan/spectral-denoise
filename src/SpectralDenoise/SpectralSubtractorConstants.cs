@@ -26,11 +26,15 @@ internal static class SpectralSubtractorConstants
     public const string FrameSizePowerOfTwoMessage = "frameSize must be a power of two.";
     public const string HopPositiveMessage = "Hop must be positive.";
     public const string NoiseRegionTooShortMessage = "Noise region shorter than one frame - give me more leading silence.";
+    public const string SpectralFloorRangeMessage = "SpectralFloor must be in range [0, 1].";
 
     // ------------------------------------------------------------------------
     // Numeric constants
     // ------------------------------------------------------------------------
     public const int DefaultSampleRate = 44_100;          // Standard CD‑quality sample rate used for time‑constant calculations
+    public const double DefaultSpectralFloor = 0.02;      // Default minimum gain (fraction of the original magnitude kept)
+    public const double MinSpectralFloor = 0.0;           // Inclusive lower bound for SpectralFloor
+    public const double MaxSpectralFloor = 1.0;           // Inclusive upper bound for SpectralFloor
     public const double NormalizationEpsilon = 1e-6;      // Small value to avoid division by zero when normalising output
     public const double PowerEpsilon = 1e-20;             // Threshold to avoid divide‑by‑zero in SNR calculations
     public const int MinFrameSize = 128;                  // Minimum allowed frame size (must be power of two)

@@ -61,13 +61,14 @@ public static class SpectralSubtractorValidation
         }
 
         // Validate SpectralFloor (spectral floor)
-        // Should be in range [0, 1] (fraction of original magnitude to mask musical noise)
-        if (value.SpectralFloor is < 0.0 or > 1.0)
+        // Should be in range [0, 1] (fraction of original magnitude to mask musical noise).
+        // The setter rejects this on assignment, so this only fires if the backing field was bypassed.
+        if (!IsValidSpectralFloor(value.SpectralFloor))
         {
             problems.Add(
                 ValidationMessages.FormatParameterError(
                     nameof(value.SpectralFloor),
-                    $"must be in range [0, 1] (spectral floor, got " + value.SpectralFloor.ToString(CultureInfo.InvariantCulture) + "]"));
+                    $"must be in range [0, 1] (spectral floor, got " + value.SpectralFloor.ToString(CultureInfo.InvariantCulture) + ")"));
         }
 
         // Validate frame size is a power of two
@@ -90,6 +91,15 @@ public static class SpectralSubtractorValidation
 
         return problems;
     }
+
+    /// <summary>
+    /// Checks whether a spectral floor (minimum gain) is within the inclusive range [0, 1].
+    /// NaN and infinities are rejected.
+    /// </summary>
+    /// <param name="value">The spectral floor to check.</param>
+    /// <returns>True if within [0, 1]; otherwise false.</returns>
+    internal static bool IsValidSpectralFloor(double value)
+        => value >= SpectralSubtractorConstants.MinSpectralFloor && value <= SpectralSubtractorConstants.MaxSpectralFloor;
 
     /// <summary>
     /// Checks whether a <see cref="SpectralSubtractor"/> instance is valid.

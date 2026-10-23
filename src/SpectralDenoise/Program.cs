@@ -57,9 +57,9 @@ for (int i = 0; i < args.Length; i++)
                 break;
 
             case "--floor":
-                if (!double.TryParse(value, System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out floor) || floor < 0)
+                if (!double.TryParse(value, System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out floor) || !SpectralSubtractorValidation.IsValidSpectralFloor(floor))
                 {
-                    Console.Error.WriteLine("Error: --floor must be a non-negative number.");
+                    Console.Error.WriteLine("Error: --floor must be a number in the range [0, 1].");
                     PrintUsage();
                     return ExitInvalidArguments;
                 }
