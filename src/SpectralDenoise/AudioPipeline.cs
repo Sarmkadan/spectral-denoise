@@ -46,6 +46,40 @@ public sealed class AudioPipeline : IAudioProcessor
     }
 
     /// <summary>
+    /// Initializes a new audio processing pipeline with validated options.
+    /// </summary>
+    /// <param name="options">Pipeline options, checked against every rule before the pipeline is created.</param>
+    /// <param name="processors">Array of audio processors to chain together. Processors are applied in order.</param>
+    /// <exception cref="InvalidPipelineOptionsException">Thrown when one or more option rules are violated; lists all of them.</exception>
+    /// <exception cref="ArgumentNullException">Thrown when processors array is null.</exception>
+    /// <exception cref="ArgumentException">Thrown when processors array is empty or contains null processors.</exception>
+    public AudioPipeline(PipelineOptions options, params IAudioProcessor[] processors)
+        : this(options, null, processors)
+    {
+    }
+
+    /// <summary>
+    /// Initializes a new named audio processing pipeline with validated options.
+    /// </summary>
+    /// <param name="options">Pipeline options, checked against every rule before the pipeline is created.</param>
+    /// <param name="name">Optional descriptive name for the pipeline (useful for debugging).</param>
+    /// <param name="processors">Array of audio processors to chain together. Processors are applied in order.</param>
+    /// <exception cref="InvalidPipelineOptionsException">Thrown when one or more option rules are violated; lists all of them.</exception>
+    /// <exception cref="ArgumentNullException">Thrown when processors array is null.</exception>
+    /// <exception cref="ArgumentException">Thrown when processors array is empty or contains null processors.</exception>
+    public AudioPipeline(PipelineOptions options, string? name, params IAudioProcessor[] processors)
+        : this(name, processors)
+    {
+        options.EnsureValid();
+        Options = options;
+    }
+
+    /// <summary>
+    /// Gets the validated options this pipeline was created with, or <c>null</c> when it was created without options.
+    /// </summary>
+    public PipelineOptions? Options { get; }
+
+    /// <summary>
     /// Gets the array of processors in this pipeline.
     /// </summary>
     public IReadOnlyList<IAudioProcessor> Processors => _processors;

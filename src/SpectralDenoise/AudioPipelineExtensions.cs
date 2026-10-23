@@ -48,7 +48,9 @@ public static class AudioPipelineExtensions
         pipeline.Processors.ToArray().CopyTo(processors, 0);
         processors[pipeline.Processors.Count] = processor;
 
-        return new AudioPipeline(pipeline.Name, processors);
+        return pipeline.Options is { } options
+            ? new AudioPipeline(options, pipeline.Name, processors)
+            : new AudioPipeline(pipeline.Name, processors);
     }
 
     /// <summary>
