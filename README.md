@@ -97,6 +97,91 @@ dotnet run --project src/SpectralDenoise -- denoise sample.wav clean.wav
 
 The tool prints input vs output RMS so you get a rough before/after number.
 
+## Choosing an algorithm
+
+Both methods live on `SpectralSubtractor` and are picked with `Mode` (`DenoiseMode`).
+They share the STFT, the noise profile and the overlap-add. They differ only in how
+each bin's gain is computed. The CLI exposes the same choice as `--mode subtract|wiener`,
+with `--alpha` setting `OverSubtractionFactor` and `--floor` setting `SpectralFloor`.
+
+Both examples use the same 0.5 s noise estimate as the Getting started section.
+
+### Classic spectral subtraction
+
+```csharp
+using SpectralDenoise;
+
+var (samples, sampleRate) = WavFile.ReadMono("input.wav");
+
+var subtractor = new SpectralSubtractor(frameSize: 1024, hop: 256)
+{
+    Mode = DenoiseMode.SpectralSubtraction,
+    OverSubtractionFactor = 2.0, // multiples of the noise estimate removed per bin; higher = more noise gone, more artifacts
+    SpectralFloor = 0.02,        // minimum fraction of each bin's magnitude kept; higher = less musical noise, more residual hiss
+};
+
+double noiseSeconds = 0.5;       // length of the leading region assumed to be noise-only
+int noiseLength = Math.Min(samples.Length, (int)(sampleRate * noiseSeconds));
+double[] noiseProfile = subtractor.EstimateNoiseProfile(samples.AsSpan(0, noiseLength));
+
+var pipeline = new AudioPipeline(new ProfiledSubtractor(subtractor, noiseProfile));
+float[] denoised = pipeline.Process(samples, sampleRate);
+
+WavFile.WriteMono("output-subtract.wav", denoised, sampleRate);
+
+// Wraps SpectralSubtractor so the pipeline can call it through IAudioProcessor.
+sealed class ProfiledSubtractor(SpectralSubtractor subtractor, double[] noiseProfile) : IAudioProcessor
+{
+    public float[] Process(float[] samples, int sampleRate) => subtractor.Process(samples, noiseProfile);
+
+    public void Reset() => subtractor.Reset();
+}
+```
+
+### Wiener filter
+
+```csharp
+using SpectralDenoise;
+
+var (samples, sampleRate) = WavFile.ReadMono("input.wav");
+
+var subtractor = new SpectralSubtractor(frameSize: 1024, hop: 256)
+{
+    Mode = DenoiseMode.Wiener,   // per-bin gain = SNR / (SNR + 1); OverSubtractionFactor is ignored in this mode
+    SpectralFloor = 0.02,        // minimum fraction of each bin's magnitude kept; the gain curve is smooth, so this rarely binds
+};
+
+double noiseSeconds = 0.5;       // length of the leading region assumed to be noise-only
+int noiseLength = Math.Min(samples.Length, (int)(sampleRate * noiseSeconds));
+double[] noiseProfile = subtractor.EstimateNoiseProfile(samples.AsSpan(0, noiseLength));
+
+var pipeline = new AudioPipeline(new ProfiledSubtractor(subtractor, noiseProfile));
+float[] denoised = pipeline.Process(samples, sampleRate);
+
+WavFile.WriteMono("output-wiener.wav", denoised, sampleRate);
+
+// Wraps SpectralSubtractor so the pipeline can call it through IAudioProcessor.
+sealed class ProfiledSubtractor(SpectralSubtractor subtractor, double[] noiseProfile) : IAudioProcessor
+{
+    public float[] Process(float[] samples, int sampleRate) => subtractor.Process(samples, noiseProfile);
+
+    public void Reset() => subtractor.Reset();
+}
+```
+
+### Trade-offs
+
+| | Spectral subtraction (`DenoiseMode.SpectralSubtraction`) | Wiener (`DenoiseMode.Wiener`) |
+|---|---|---|
+| Per-bin gain | `max(0, mag - OverSubtractionFactor * noise) / mag` | `SNR / (SNR + 1)`, where `SNR = mag² / noise²` |
+| Musical-noise artifacts | **Most.** Hard subtraction zeroes bins at random frames. `SpectralFloor` masks the warble but does not remove it. | **Less.** The gain falls smoothly instead of jumping, but it is still computed per frame with no smoothing, so some warble remains. |
+| Speech distortion | **Higher for weak speech.** Bins below `OverSubtractionFactor` × noise are removed or floored, so quiet consonants and tails get chopped. | **Lower, but present.** Bins near the noise level are halved (gain 0.5 at `mag = noise`), which can sound muffled. |
+| Noise removal | Stronger, controlled by `OverSubtractionFactor`. | Gentler, so more hiss survives. |
+| Main knobs | `OverSubtractionFactor`, `SpectralFloor` | `SpectralFloor` only |
+
+These comparisons come from how the gain curves behave, not from listening tests.
+The project has no SNR or PESQ evaluation yet.
+
 ## Limitations (the honest part)
 
 - **Musical noise.** The hard subtraction + floor leaves the usual warbly
