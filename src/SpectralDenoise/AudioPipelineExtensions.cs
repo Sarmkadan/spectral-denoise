@@ -73,6 +73,7 @@ public static class AudioPipelineExtensions
     /// Creates a pipeline with a noise gate followed by spectral subtraction.
     /// This is a convenience method for the common use case of noise reduction.
     /// </summary>
+    /// <param name="sampleRate">Sample rate of the audio in Hz.</param>
     /// <param name="gateThresholdDb">Noise gate threshold in dB.</param>
     /// <param name="gateAttackMs">Noise gate attack time in milliseconds.</param>
     /// <param name="gateReleaseMs">Noise gate release time in milliseconds.</param>

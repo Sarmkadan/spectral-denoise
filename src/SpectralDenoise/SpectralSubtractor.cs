@@ -225,7 +225,7 @@ public sealed class SpectralSubtractor : ISpectralProcessor, ISpectralSubtractor
     /// Called after JSON deserialization to validate the untrusted input.
     /// </summary>
     [JsonConstructor]
-    private SpectralSubtractor()
+    private SpectralSubtractor() : this(frameSize: 1024, hop: 256)
     {
     }
 
@@ -515,7 +515,7 @@ public sealed class SpectralSubtractor : ISpectralProcessor, ISpectralSubtractor
     /// <param name="noiseProfile">Noise profile to use for denoising</param>
     /// <param name="progress">Optional progress reporter</param>
     /// <returns>The number of samples written to the output buffer</returns>
-    /// <exception cref="ArgumentNullException">Thrown when input, state, output, or noiseProfile is null</exception>
+    /// <exception cref="ArgumentNullException">Thrown when state or noiseProfile is null</exception>
     /// <exception cref="ArgumentException">Thrown when noise profile length doesn't match frame size</exception>
     public int ProcessBlock(
         ReadOnlySpan<float> input,
@@ -525,12 +525,8 @@ public sealed class SpectralSubtractor : ISpectralProcessor, ISpectralSubtractor
         double[] noiseProfile,
         IProgress<double>? progress = null)
     {
-        if (input == null)
-            throw new ArgumentNullException(nameof(input));
         if (state == null)
             throw new ArgumentNullException(nameof(state));
-        if (output == null)
-            throw new ArgumentNullException(nameof(output));
         if (noiseProfile == null)
             throw new ArgumentNullException(nameof(noiseProfile));
 
@@ -678,5 +674,8 @@ public sealed class SpectralSubtractor : ISpectralProcessor, ISpectralSubtractor
         Fft.Forward(_analysisBuffer);
     }
 
+    /// <summary>
+    /// Returns a short description of the current over-subtraction and floor settings.
+    /// </summary>
     public override string ToString() => $"SpectralSubtractor {{ OverSubtractionFactor = {OverSubtractionFactor}, SpectralFloor = {SpectralFloor} }}";
 }

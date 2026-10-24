@@ -3,6 +3,9 @@ using System.Linq;
 
 namespace SpectralDenoise;
 
+/// <summary>
+/// Helpers for operating on float sample buffers.
+/// </summary>
 public static class SampleBufferExtensions
 {
     /// <summary>

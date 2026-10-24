@@ -52,7 +52,7 @@ public static class SpectralSubtractorExtensions
     /// <param name="subtractor">The spectral subtractor instance.</param>
     /// <param name="noiseOnly">Noise‑only sample to estimate profile from.</param>
     /// <param name="normalize">Whether to normalize the profile to a target RMS level (default: true).</param>
-    /// <returns>A normalized noise profile suitable for use with <see cref="SpectralSubtractor.Process"/>.</returns>
+    /// <returns>A normalized noise profile suitable for use with <see cref="SpectralSubtractor.Process(ReadOnlySpan{float}, double[], IProgress{double})"/>.</returns>
     /// <exception cref="ArgumentNullException">Thrown when <paramref name="subtractor"/> is null.</exception>
     /// <exception cref="InvalidOperationException">Thrown when noise region is too short.</exception>
     public static double[] EstimateNormalizedNoiseProfile(this SpectralSubtractor subtractor, ReadOnlySpan<float> noiseOnly, bool normalize = true)

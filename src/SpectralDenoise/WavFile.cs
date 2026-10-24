@@ -328,6 +328,12 @@ public class WavFile : IAudioFileReader, IAudioFileWriter
 
     (float[] samples, int sampleRate) IAudioFileReader.ReadMono(string path) => ReadMono(path);
 
+    /// <summary>
+    /// Writes a mono buffer to a 32-bit float WAV file.
+    /// </summary>
+    /// <param name="path">Destination file path.</param>
+    /// <param name="samples">Mono samples to write.</param>
+    /// <param name="sampleRate">Sample rate in Hz.</param>
     public static void WriteMono(string path, float[] samples, int sampleRate)
     {
         ArgumentNullException.ThrowIfNull(path);
@@ -383,6 +389,13 @@ public class WavFile : IAudioFileReader, IAudioFileWriter
 
     (float[] left, float[] right, int sampleRate) IAudioFileReader.ReadStereo(string path) => ReadStereo(path);
 
+    /// <summary>
+    /// Writes a stereo buffer to a 32-bit float WAV file.
+    /// </summary>
+    /// <param name="path">Destination file path.</param>
+    /// <param name="left">Left channel samples.</param>
+    /// <param name="right">Right channel samples.</param>
+    /// <param name="sampleRate">Sample rate in Hz.</param>
     public static void WriteStereo(string path, float[] left, float[] right, int sampleRate)
     {
         ArgumentNullException.ThrowIfNull(path);

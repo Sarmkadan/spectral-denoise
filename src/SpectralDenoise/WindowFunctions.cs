@@ -24,12 +24,18 @@ public interface IWindowFunction
 /// </summary>
 public sealed class HannWindowFunction : IWindowFunction
 {
+    /// <inheritdoc/>
     public string Name => "Hann";
 
     private readonly bool _periodic;
 
+    /// <summary>
+    /// Creates a Hann window function.
+    /// </summary>
+    /// <param name="periodic">Whether to use the periodic (COLA-compatible) variant.</param>
     public HannWindowFunction(bool periodic = false) => _periodic = periodic;
 
+    /// <inheritdoc/>
     public void Fill(Span<float> window)
     {
         int size = window.Length;
@@ -49,8 +55,10 @@ public sealed class HannWindowFunction : IWindowFunction
 /// </summary>
 public sealed class HammingWindowFunction : IWindowFunction
 {
+    /// <inheritdoc/>
     public string Name => "Hamming";
 
+    /// <inheritdoc/>
     public void Fill(Span<float> window)
     {
         int size = window.Length;
@@ -70,8 +78,10 @@ public sealed class HammingWindowFunction : IWindowFunction
 /// </summary>
 public sealed class BlackmanWindowFunction : IWindowFunction
 {
+    /// <inheritdoc/>
     public string Name => "Blackman";
 
+    /// <inheritdoc/>
     public void Fill(Span<float> window)
     {
         int size = window.Length;
@@ -91,6 +101,9 @@ public sealed class BlackmanWindowFunction : IWindowFunction
     }
 }
 
+/// <summary>
+/// Factory methods for common window functions.
+/// </summary>
 public static class WindowFunctions
 {
     /// <summary>
