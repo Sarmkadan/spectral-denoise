@@ -26,6 +26,7 @@ double alpha = DefaultAlpha;
 double floor = DefaultFloor;
 DenoiseMode mode = DenoiseMode.SpectralSubtraction;
 bool leadingNoise = false;
+double? normalizeDbfs = null;
 
 for (int i = 0; i < args.Length; i++)
 {
@@ -109,6 +110,16 @@ for (int i = 0; i < args.Length; i++)
                 }
                 break;
 
+            case "--normalize":
+                if (!double.TryParse(value, System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out double targetDbfs) || targetDbfs > 0)
+                {
+                    Console.Error.WriteLine("Error: --normalize must be a number in dBFS, at most 0.");
+                    PrintUsage();
+                    return ExitInvalidArguments;
+                }
+                normalizeDbfs = targetDbfs;
+                break;
+
             default:
                 Console.Error.WriteLine($"Error: Unknown argument {arg}");
                 PrintUsage();
@@ -184,7 +195,7 @@ if (File.Exists(outputPath))
     return ExitOutputFileExists;
 }
 
-return Denoise(inputPath, outputPath, noiseSeconds, alpha, floor, mode, leadingNoise);
+return Denoise(inputPath, outputPath, noiseSeconds, alpha, floor, mode, leadingNoise, normalizeDbfs);
 
 static void PrintUsage()
 {
@@ -202,6 +213,7 @@ static void PrintUsage()
     Console.Error.WriteLine($" --noise-seconds VALUE Length of the noise segment used for estimation (default: {DefaultNoiseSeconds:0.0})");
     Console.Error.WriteLine(" --mode MODE          Denoising mode: subtract or wiener (default: subtract)");
     Console.Error.WriteLine(" --noise-select MODE  Where the noise segment comes from: quietest (lowest-energy segment) or leading (first segment) (default: quietest)");
+    Console.Error.WriteLine(" --normalize DBFS     Scale output so its peak sits at DBFS (<= 0, e.g. -1.0); off by default");
     Console.Error.WriteLine();
     Console.Error.WriteLine("examples:");
     Console.Error.WriteLine(" denoise input.wav output.wav");
@@ -209,6 +221,7 @@ static void PrintUsage()
     Console.Error.WriteLine(" denoise input.wav output.wav --alpha 2.5 --floor 0.01");
     Console.Error.WriteLine(" denoise input.wav output.wav --mode wiener");
     Console.Error.WriteLine(" denoise input.wav output.wav --noise-select leading");
+    Console.Error.WriteLine(" denoise input.wav output.wav --normalize -1.0");
     Console.Error.WriteLine(" denoise --help");
 }
 
@@ -217,7 +230,7 @@ static NoiseSegment SelectNoise(float[] channel, int sampleRate, double seconds,
         ? NoiseSegmentDetector.Leading(channel, sampleRate, seconds)
         : new NoiseSegmentDetector(hop).Detect(channel, sampleRate, seconds);
 
-static int Denoise(string inPath, string outPath, double noiseSeconds, double alpha, double floor, DenoiseMode mode, bool leadingNoise)
+static int Denoise(string inPath, string outPath, double noiseSeconds, double alpha, double floor, DenoiseMode mode, bool leadingNoise, double? normalizeDbfs)
 {
     IAudioFileReader reader = new WavFile();
     IAudioFileWriter writer = (IAudioFileWriter)reader;
@@ -259,6 +272,12 @@ static int Denoise(string inPath, string outPath, double noiseSeconds, double al
         Console.WriteLine("denoising right channel...");
         var cleanedRight = sub.Process(right, profile, rightProgress);
 
+        if (normalizeDbfs is double targetStereo)
+        {
+            // Shared gain keeps the left/right balance intact
+            NormalizePeak(targetStereo, cleanedLeft, cleanedRight);
+        }
+
         writer.WriteStereo(outPath, cleanedLeft, cleanedRight, sr);
 
         Console.WriteLine($"wrote {outPath}");
@@ -292,6 +311,12 @@ static int Denoise(string inPath, string outPath, double noiseSeconds, double al
 
         var monoProgress = new Progress<double>(p => Console.WriteLine($"Progress: {p:P0}"));
         var cleaned = sub.Process(samples, profile, monoProgress);
+
+        if (normalizeDbfs is double targetMono)
+        {
+            NormalizePeak(targetMono, cleaned);
+        }
+
         writer.WriteMono(outPath, cleaned, sr);
 
         Console.WriteLine($"wrote {outPath}");
@@ -304,6 +329,25 @@ static int Denoise(string inPath, string outPath, double noiseSeconds, double al
         Console.Error.WriteLine($"Error: Failed to process audio: {ex.Message}");
         return ExitProcessingFailure;
     }
+}
+
+static void NormalizePeak(double targetDbfs, params float[][] channels)
+{
+    double peak = 0;
+    foreach (var channel in channels)
+        foreach (var v in channel)
+            peak = Math.Max(peak, Math.Abs((double)v));
+
+    // Silence has no peak to scale from; leave it untouched
+    if (peak == 0)
+    {
+        return;
+    }
+
+    double gain = Math.Pow(10, targetDbfs / 20) / peak;
+    foreach (var channel in channels)
+        for (int i = 0; i < channel.Length; i++)
+            channel[i] = (float)(channel[i] * gain);
 }
 
 static double Rms(float[] x)
