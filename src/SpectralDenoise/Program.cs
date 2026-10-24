@@ -25,6 +25,7 @@ double noiseSeconds = DefaultNoiseSeconds;
 double alpha = DefaultAlpha;
 double floor = DefaultFloor;
 DenoiseMode mode = DenoiseMode.SpectralSubtraction;
+bool leadingNoise = false;
 
 for (int i = 0; i < args.Length; i++)
 {
@@ -86,6 +87,23 @@ for (int i = 0; i < args.Length; i++)
                 else
                 {
                     Console.Error.WriteLine($"Error: Unknown denoise mode '{value}'. Expected 'subtract' or 'wiener'.");
+                    PrintUsage();
+                    return ExitInvalidArguments;
+                }
+                break;
+
+            case "--noise-select":
+                if (value == "quietest")
+                {
+                    leadingNoise = false;
+                }
+                else if (value == "leading")
+                {
+                    leadingNoise = true;
+                }
+                else
+                {
+                    Console.Error.WriteLine($"Error: Unknown noise selection '{value}'. Expected 'quietest' or 'leading'.");
                     PrintUsage();
                     return ExitInvalidArguments;
                 }
@@ -166,12 +184,12 @@ if (File.Exists(outputPath))
     return ExitOutputFileExists;
 }
 
-return Denoise(inputPath, outputPath, noiseSeconds, alpha, floor, mode);
+return Denoise(inputPath, outputPath, noiseSeconds, alpha, floor, mode, leadingNoise);
 
 static void PrintUsage()
 {
     Console.Error.WriteLine("usage:");
-    Console.Error.WriteLine(" denoise <input.wav> <output.wav> [--alpha VALUE] [--floor VALUE] [--noise-seconds VALUE] [--mode MODE]");
+    Console.Error.WriteLine(" denoise <input.wav> <output.wav> [--alpha VALUE] [--floor VALUE] [--noise-seconds VALUE] [--mode MODE] [--noise-select MODE]");
     Console.Error.WriteLine();
     Console.Error.WriteLine("positional arguments:");
     Console.Error.WriteLine(" input.wav   Input WAV file path (required)");
@@ -181,18 +199,25 @@ static void PrintUsage()
     Console.Error.WriteLine(" --help, -h         Show this help message");
     Console.Error.WriteLine($" --alpha VALUE        Spectral subtraction alpha parameter (default: {DefaultAlpha:0.0})");
     Console.Error.WriteLine($" --floor VALUE        Spectral subtraction floor parameter (default: {DefaultFloor:0.00})");
-    Console.Error.WriteLine($" --noise-seconds VALUE Seconds of audio to sample for noise estimation (default: {DefaultNoiseSeconds:0.0})");
+    Console.Error.WriteLine($" --noise-seconds VALUE Length of the noise segment used for estimation (default: {DefaultNoiseSeconds:0.0})");
     Console.Error.WriteLine(" --mode MODE          Denoising mode: subtract or wiener (default: subtract)");
+    Console.Error.WriteLine(" --noise-select MODE  Where the noise segment comes from: quietest (lowest-energy segment) or leading (first segment) (default: quietest)");
     Console.Error.WriteLine();
     Console.Error.WriteLine("examples:");
     Console.Error.WriteLine(" denoise input.wav output.wav");
     Console.Error.WriteLine(" denoise input.wav output.wav --noise-seconds 1.0");
     Console.Error.WriteLine(" denoise input.wav output.wav --alpha 2.5 --floor 0.01");
     Console.Error.WriteLine(" denoise input.wav output.wav --mode wiener");
+    Console.Error.WriteLine(" denoise input.wav output.wav --noise-select leading");
     Console.Error.WriteLine(" denoise --help");
 }
 
-static int Denoise(string inPath, string outPath, double noiseSeconds, double alpha, double floor, DenoiseMode mode)
+static NoiseSegment SelectNoise(float[] channel, int sampleRate, double seconds, int hop, bool leadingOnly)
+    => leadingOnly
+        ? NoiseSegmentDetector.Leading(channel, sampleRate, seconds)
+        : new NoiseSegmentDetector(hop).Detect(channel, sampleRate, seconds);
+
+static int Denoise(string inPath, string outPath, double noiseSeconds, double alpha, double floor, DenoiseMode mode, bool leadingNoise)
 {
     IAudioFileReader reader = new WavFile();
     IAudioFileWriter writer = (IAudioFileWriter)reader;
@@ -215,15 +240,15 @@ static int Denoise(string inPath, string outPath, double noiseSeconds, double al
         };
 
         // Estimate noise profile from the first channel (assuming both channels have similar noise)
-        int noiseLen = Math.Min(left.Length, (int)(sr * noiseSeconds));
-        if (noiseLen == 0)
+        NoiseSegment noise = SelectNoise(left, sr, noiseSeconds, sub.Hop, leadingNoise);
+        if (noise.Length == 0)
         {
             Console.Error.WriteLine("Error: Not enough samples to estimate noise profile.");
             return ExitProcessingFailure;
         }
 
-        profile = sub.EstimateNoiseProfile(left.AsSpan(0, noiseLen));
-        Console.WriteLine($"estimated noise profile from {noiseLen} samples ({noiseSeconds}s)");
+        profile = sub.EstimateNoiseProfile(left.AsSpan(noise.Start, noise.Length));
+        Console.WriteLine($"estimated noise profile from {noise.Length} samples ({noiseSeconds}s) at {noise.Start / (double)sr:F2}s");
 
         // Process each channel independently with progress reporting
         var leftProgress = new Progress<double>(p => Console.WriteLine($"Left channel progress: {p:P0}"));
@@ -255,15 +280,15 @@ static int Denoise(string inPath, string outPath, double noiseSeconds, double al
             Mode = mode,
         };
 
-        int noiseLen = Math.Min(samples.Length, (int)(sr * noiseSeconds));
-        if (noiseLen == 0)
+        NoiseSegment noise = SelectNoise(samples, sr, noiseSeconds, sub.Hop, leadingNoise);
+        if (noise.Length == 0)
         {
             Console.Error.WriteLine("Error: Not enough samples to estimate noise profile.");
             return ExitProcessingFailure;
         }
 
-        profile = sub.EstimateNoiseProfile(samples.AsSpan(0, noiseLen));
-        Console.WriteLine($"estimated noise profile from {noiseLen} samples ({noiseSeconds}s)");
+        profile = sub.EstimateNoiseProfile(samples.AsSpan(noise.Start, noise.Length));
+        Console.WriteLine($"estimated noise profile from {noise.Length} samples ({noiseSeconds}s) at {noise.Start / (double)sr:F2}s");
 
         var monoProgress = new Progress<double>(p => Console.WriteLine($"Progress: {p:P0}"));
         var cleaned = sub.Process(samples, profile, monoProgress);

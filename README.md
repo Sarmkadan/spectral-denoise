@@ -14,8 +14,11 @@ here (see Limitations). I would not put this near real audio yet.
 
 ## How it works
 
-1. Take the first 0.5s of the clip, assume it is noise-only, average its
-   magnitude spectrum -> noise profile.
+1. Find the 0.5s stretch of the clip with the lowest energy (summed over
+   hop-sized blocks, so it can sit anywhere, not just at the start), assume it is
+   noise-only, average its magnitude spectrum -> noise profile. Use
+   `--noise-select leading` (or `NoiseSegmentDetector.Leading`) to keep the old
+   behaviour of taking the first 0.5s.
 2. STFT the whole signal (1024-sample Hann frames, 256 hop).
 3. Per frame, per bin: `mag' = mag - alpha * noise[bin]`, clamped to a spectral
    floor `beta * mag`. Phase is left untouched.
@@ -189,9 +192,11 @@ The project has no SNR or PESQ evaluation yet.
 - **Static noise profile.** Estimated once from the head of the file. If the
   noise drifts (fan spins up, AC kicks in) the whole thing falls apart. Needs a
   running minimum-statistics estimator instead.
-- **The 0.5s-silence assumption is fragile.** Real recordings often start
-  talking immediately. Then the "noise" profile is actually voice and it eats
-  the signal.
+- **The quietest-segment guess is still a guess.** The detector picks the
+  lowest-energy 0.5s window, which avoids speech at the start of a clip. But a
+  clip with no pause at all, or one where the quietest window is a breath or
+  a consonant gap, still gives a noise profile that is partly voice. There is
+  no real VAD yet, just block energy.
 - **Mono only.** Stereo is downmixed on load. Fine for voice, wrong for anything
   else.
 - No VAD, no proper evaluation (SNR/PESQ), just an eyeball + RMS.
