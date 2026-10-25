@@ -70,7 +70,7 @@ public sealed class SpectralSubtractor : ISpectralProcessor, ISpectralSubtractor
     /// Default = 1.0.
     /// </summary>
     [JsonPropertyOrder(3)]
-    public double OverSubtractionFactor { get; set; } = 1.0;
+    public double OverSubtractionFactor { get; set; } = SpectralSubtractorConstants.DefaultOverSubtraction;
 
     /// <summary>
     /// Spectral floor. Minimum fraction of the original magnitude kept,
@@ -186,23 +186,42 @@ public sealed class SpectralSubtractor : ISpectralProcessor, ISpectralSubtractor
     }
 
     /// <summary>
-    /// Initializes a new instance of the <see cref="SpectralSubtractor"/> class.
+    /// Initializes a new instance of the <see cref="SpectralSubtractor"/> class from the given options.
     /// </summary>
-    /// <param name="frameSize">Frame size (must be a power of two).</param>
-    /// <param name="hop">Hop size (number of samples between frames).</param>
-    /// <exception cref="ArgumentException">Thrown when frameSize is not a power of two or when window/overlap combination violates COLA.</exception>
-    public SpectralSubtractor(int frameSize = 1024, int hop = 256)
+    /// <param name="options">Framing, over-subtraction and window configuration.</param>
+    /// <exception cref="ArgumentNullException">Thrown when options is null.</exception>
+    /// <exception cref="ArgumentException">Thrown when FftSize is not a power of two, when a supplied window has the wrong length, or when the window/overlap combination violates COLA.</exception>
+    /// <exception cref="ArgumentOutOfRangeException">Thrown when HopSize is not positive.</exception>
+    public SpectralSubtractor(SpectralSubtractorOptions options)
     {
+        ArgumentNullException.ThrowIfNull(options);
+
+        int frameSize = options.FftSize;
+        int hop = options.HopSize;
+
         if ((frameSize & (frameSize - 1)) != 0)
-            throw new ArgumentException(SpectralSubtractorConstants.FrameSizePowerOfTwoMessage, nameof(frameSize));
+            throw new ArgumentException(SpectralSubtractorConstants.FrameSizePowerOfTwoMessage, nameof(options.FftSize));
 
         if (hop <= 0)
-            throw new ArgumentOutOfRangeException(nameof(hop), SpectralSubtractorConstants.HopPositiveMessage);
+            throw new ArgumentOutOfRangeException(nameof(options.HopSize), SpectralSubtractorConstants.HopPositiveMessage);
+
+        if (options.Window is null)
+        {
+            _window = WindowFunctions.HannPeriodic(frameSize);
+        }
+        else
+        {
+            if (options.Window.Length != frameSize)
+                throw new ArgumentException($"Window length {options.Window.Length} does not match FftSize {frameSize}.", nameof(options.Window));
+
+            ValidateCola(options.Window, hop);
+            _window = (double[])options.Window.Clone();
+        }
 
         _frameSize = frameSize;
-        _window = WindowFunctions.HannPeriodic(frameSize);
         _prevGain = new double[frameSize / 2 + 1];
         _analysisBuffer = new Complex[frameSize];
+        OverSubtractionFactor = options.OverSubtraction;
 
         _hop = hop;
 
@@ -222,10 +241,22 @@ public sealed class SpectralSubtractor : ISpectralProcessor, ISpectralSubtractor
     }
 
     /// <summary>
+    /// Initializes a new instance of the <see cref="SpectralSubtractor"/> class with the default periodic Hann window.
+    /// Convenience overload equivalent to passing <see cref="SpectralSubtractorOptions"/> with FftSize = <paramref name="frameSize"/> and HopSize = <paramref name="hop"/>.
+    /// </summary>
+    /// <param name="frameSize">Frame size (must be a power of two).</param>
+    /// <param name="hop">Hop size (number of samples between frames).</param>
+    /// <exception cref="ArgumentException">Thrown when frameSize is not a power of two or when window/overlap combination violates COLA.</exception>
+    public SpectralSubtractor(int frameSize = SpectralSubtractorConstants.DefaultFftSize, int hop = SpectralSubtractorConstants.DefaultHopSize)
+        : this(new SpectralSubtractorOptions { FftSize = frameSize, HopSize = hop })
+    {
+    }
+
+    /// <summary>
     /// Called after JSON deserialization to validate the untrusted input.
     /// </summary>
     [JsonConstructor]
-    private SpectralSubtractor() : this(frameSize: 1024, hop: 256)
+    private SpectralSubtractor() : this(new SpectralSubtractorOptions())
     {
     }
 

@@ -39,4 +39,7 @@ internal static class SpectralSubtractorConstants
     public const double PowerEpsilon = 1e-20;             // Threshold to avoid divide‑by‑zero in SNR calculations
     public const int MinFrameSize = 128;                  // Minimum allowed frame size (must be power of two)
     public const int MaxFrameSize = 8_192;                // Maximum allowed frame size (must be power of two)
+    public const int DefaultFftSize = 1024;               // Default FFT / analysis frame size in samples
+    public const int DefaultHopSize = 256;                // Default hop between frames in samples
+    public const double DefaultOverSubtraction = 1.0;     // Default over-subtraction factor applied to the noise profile
 }
