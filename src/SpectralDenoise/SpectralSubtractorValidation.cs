@@ -52,7 +52,7 @@ public static class SpectralSubtractorValidation
 
         // Validate Alpha (over-subtraction factor)
         // Should be >= 1.0 (1.0 = plain Boll, higher = more aggressive)
-        if (value.Alpha < 1.0)
+        if (value.Alpha < SpectralSubtractorValidationConstants.MinAlpha)
         {
             problems.Add(
                 ValidationMessages.FormatParameterError(
@@ -137,7 +137,7 @@ public static class SpectralSubtractorValidation
     /// <param name="paramName">The name of the parameter for error messages.</param>
     /// <returns>A list of human-readable problem descriptions; empty if valid.</returns>
     /// <exception cref="ArgumentNullException">Thrown when <paramref name="noiseProfile"/> is null.</exception>
-    public static IReadOnlyList<string> ValidateNoiseProfile(this double[]? noiseProfile, string paramName = "noiseProfile")
+    public static IReadOnlyList<string> ValidateNoiseProfile(this double[]? noiseProfile, string paramName = SpectralSubtractorValidationConstants.DefaultNoiseProfileParamName)
     {
         ArgumentNullException.ThrowIfNull(noiseProfile);
 
@@ -189,7 +189,7 @@ public static class SpectralSubtractorValidation
     /// <param name="paramName">The name of the parameter for error messages.</param>
     /// <exception cref="ArgumentNullException">Thrown when <paramref name="noiseProfile"/> is null.</exception>
     /// <exception cref="ArgumentException">Thrown when the noise profile is invalid, containing a list of problems.</exception>
-    public static void EnsureValidNoiseProfile(this double[]? noiseProfile, string paramName = "noiseProfile")
+    public static void EnsureValidNoiseProfile(this double[]? noiseProfile, string paramName = SpectralSubtractorValidationConstants.DefaultNoiseProfileParamName)
     {
         ArgumentNullException.ThrowIfNull(noiseProfile);
 
@@ -212,14 +212,11 @@ public static class SpectralSubtractorValidation
     {
         var problems = new List<string>();
 
-        const int MinSampleRate = 8000;
-        const int MaxSampleRate = 192000;
-
-        if (sampleRate < MinSampleRate || sampleRate > MaxSampleRate)
+        if (sampleRate < SpectralSubtractorValidationConstants.MinSampleRate || sampleRate > SpectralSubtractorValidationConstants.MaxSampleRate)
         {
             problems.Add(ValidationMessages.FormatParameterError(
                 nameof(sampleRate),
-                $"must be between {MinSampleRate} Hz and {MaxSampleRate} Hz (got {sampleRate} Hz)."));
+                $"must be between {SpectralSubtractorValidationConstants.MinSampleRate} Hz and {SpectralSubtractorValidationConstants.MaxSampleRate} Hz (got {sampleRate} Hz)."));
         }
 
         return problems;
@@ -320,11 +317,11 @@ public static class SpectralSubtractorValidation
                 nameof(frameSize),
                 $"must be a power of two (got {frameSize})."));
         }
-        else if (frameSize < 128 || frameSize > 8192)
+        else if (frameSize < SpectralSubtractorValidationConstants.MinFrameSize || frameSize > SpectralSubtractorValidationConstants.MaxFrameSize)
         {
             problems.Add(ValidationMessages.FormatParameterError(
                 nameof(frameSize),
-                $"should be between 128 and 8192 samples (got {frameSize})."));
+                $"should be between {SpectralSubtractorValidationConstants.MinFrameSize} and {SpectralSubtractorValidationConstants.MaxFrameSize} samples (got {frameSize})."));
         }
 
         return problems;
@@ -429,23 +426,23 @@ public static class SpectralSubtractorValidation
                 nameof(durationSeconds),
                 $"must be positive (got {durationSeconds:F3} s)."));
         }
-        else if (durationSeconds < 0.001) // Less than 1 ms
+        else if (durationSeconds < SpectralSubtractorValidationConstants.MinNoiseDurationSeconds)
         {
             problems.Add(ValidationMessages.FormatParameterError(
                 nameof(durationSeconds),
-                $"is too short (got {durationSeconds:F3} s, minimum ~1 ms)."));
+                $"is too short (got {durationSeconds:F3} s, minimum ~{SpectralSubtractorValidationConstants.MinNoiseDurationSeconds * 1000:F0} ms)."));
         }
-        else if (durationSeconds > 10.0) // More than 10 seconds
+        else if (durationSeconds > SpectralSubtractorValidationConstants.MaxNoiseDurationSeconds)
         {
             problems.Add(ValidationMessages.FormatParameterError(
                 nameof(durationSeconds),
-                $"is too long (got {durationSeconds:F3} s, maximum 10 s). " +
+                $"is too long (got {durationSeconds:F3} s, maximum {SpectralSubtractorValidationConstants.MaxNoiseDurationSeconds:F0} s). " +
                 $"Consider using a more sophisticated noise estimation algorithm for long durations."));
         }
 
         // Ensure at least one frame can be analyzed
-        int minFrames = 1;
-        int minSamples = minFrames * 128; // Minimum frame size
+        int minFrames = SpectralSubtractorValidationConstants.MinFramesForNoiseEstimation;
+        int minSamples = minFrames * SpectralSubtractorValidationConstants.MinFrameSize;
         int minDurationSamples = (int)(durationSeconds * sampleRate);
         if (minDurationSamples < minSamples)
         {
@@ -493,7 +490,7 @@ public static class SpectralSubtractorValidation
     {
         var problems = new List<string>();
 
-        if (alpha < 1.0)
+        if (alpha < SpectralSubtractorValidationConstants.MinAlpha)
         {
             problems.Add(ValidationMessages.FormatParameterError(
                 nameof(alpha),
@@ -501,11 +498,11 @@ public static class SpectralSubtractorValidation
         }
         else if (double.IsNaN(alpha))
         {
-            problems.Add(ValidationMessages.FormatParameterError(nameof(alpha), "must not be NaN."));
+            problems.Add(ValidationMessages.FormatParameterError(nameof(alpha), SpectralSubtractorValidationConstants.NotNanMessage));
         }
         else if (double.IsInfinity(alpha))
         {
-            problems.Add(ValidationMessages.FormatParameterError(nameof(alpha), "must not be infinite."));
+            problems.Add(ValidationMessages.FormatParameterError(nameof(alpha), SpectralSubtractorValidationConstants.NotInfiniteMessage));
         }
 
         return problems;
@@ -543,7 +540,7 @@ public static class SpectralSubtractorValidation
     {
         var problems = new List<string>();
 
-        if (beta < 0.0 || beta > 1.0)
+        if (beta < SpectralSubtractorValidationConstants.MinBeta || beta > SpectralSubtractorValidationConstants.MaxBeta)
         {
             problems.Add(ValidationMessages.FormatParameterError(
                 nameof(beta),
@@ -551,11 +548,11 @@ public static class SpectralSubtractorValidation
         }
         else if (double.IsNaN(beta))
         {
-            problems.Add(ValidationMessages.FormatParameterError(nameof(beta), "must not be NaN."));
+            problems.Add(ValidationMessages.FormatParameterError(nameof(beta), SpectralSubtractorValidationConstants.NotNanMessage));
         }
         else if (double.IsInfinity(beta))
         {
-            problems.Add(ValidationMessages.FormatParameterError(nameof(beta), "must not be infinite."));
+            problems.Add(ValidationMessages.FormatParameterError(nameof(beta), SpectralSubtractorValidationConstants.NotInfiniteMessage));
         }
 
         return problems;
