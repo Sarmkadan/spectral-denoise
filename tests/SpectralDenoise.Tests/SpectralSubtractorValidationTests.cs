@@ -1,6 +1,7 @@
 using System;
 using SpectralDenoise;
 using Xunit;
+using static SpectralDenoise.Tests.SpectralSubtractorValidationTestsConstants;
 
 namespace SpectralDenoise.Tests
 {
@@ -16,10 +17,10 @@ namespace SpectralDenoise.Tests
         public void Validate_SpectralSubtractorWithValidProperties_ReturnsEmptyList()
         {
             // Arrange
-            var subtractor = new SpectralSubtractor(1024, 256)
+            var subtractor = new SpectralSubtractor(FrameSize, HopSize)
             {
-                Alpha = 2.0,
-                SpectralFloor = 0.02
+                Alpha = ValidAlpha,
+                SpectralFloor = ValidSpectralFloor
             };
 
             // Act
@@ -36,10 +37,10 @@ namespace SpectralDenoise.Tests
         public void Validate_SpectralSubtractorWithAlphaLessThanOne_ReturnsError()
         {
             // Arrange
-            var subtractor = new SpectralSubtractor(1024, 256)
+            var subtractor = new SpectralSubtractor(FrameSize, HopSize)
             {
-                Alpha = 0.5,
-                SpectralFloor = 0.02
+                Alpha = AlphaBelowOne,
+                SpectralFloor = ValidSpectralFloor
             };
 
             // Act
@@ -47,8 +48,8 @@ namespace SpectralDenoise.Tests
 
             // Assert
             Assert.Single(result);
-            Assert.Contains("must be ≥ 1.0", result[0]);
-            Assert.Contains("Alpha", result[0]);
+            Assert.Contains(AlphaErrorMessageFragment, result[0]);
+            Assert.Contains(AlphaPropertyName, result[0]);
         }
 
         /// <summary>
@@ -58,10 +59,10 @@ namespace SpectralDenoise.Tests
         public void Validate_SpectralSubtractorWithAlphaEqualToOne_ReturnsEmptyList()
         {
             // Arrange
-            var subtractor = new SpectralSubtractor(1024, 256)
+            var subtractor = new SpectralSubtractor(FrameSize, HopSize)
             {
-                Alpha = 1.0,
-                SpectralFloor = 0.02
+                Alpha = AlphaEqualToOne,
+                SpectralFloor = ValidSpectralFloor
             };
 
             // Act
@@ -78,10 +79,10 @@ namespace SpectralDenoise.Tests
         public void Validate_SpectralSubtractorWithAlphaGreaterThanOne_ReturnsEmptyList()
         {
             // Arrange
-            var subtractor = new SpectralSubtractor(1024, 256)
+            var subtractor = new SpectralSubtractor(FrameSize, HopSize)
             {
-                Alpha = 5.0,
-                SpectralFloor = 0.02
+                Alpha = AlphaAboveOne,
+                SpectralFloor = ValidSpectralFloor
             };
 
             // Act
@@ -98,10 +99,10 @@ namespace SpectralDenoise.Tests
         public void Validate_SpectralSubtractorWithSpectralFloorEqualToZero_ReturnsEmptyList()
         {
             // Arrange
-            var subtractor = new SpectralSubtractor(1024, 256)
+            var subtractor = new SpectralSubtractor(FrameSize, HopSize)
             {
-                Alpha = 2.0,
-                SpectralFloor = 0.0
+                Alpha = ValidAlpha,
+                SpectralFloor = SpectralFloorZero
             };
 
             // Act
@@ -118,10 +119,10 @@ namespace SpectralDenoise.Tests
         public void Validate_SpectralSubtractorWithSpectralFloorEqualToOne_ReturnsEmptyList()
         {
             // Arrange
-            var subtractor = new SpectralSubtractor(1024, 256)
+            var subtractor = new SpectralSubtractor(FrameSize, HopSize)
             {
-                Alpha = 2.0,
-                SpectralFloor = 1.0
+                Alpha = ValidAlpha,
+                SpectralFloor = SpectralFloorOne
             };
 
             // Act
@@ -151,10 +152,10 @@ namespace SpectralDenoise.Tests
         public void IsValid_ValidSpectralSubtractor_ReturnsTrue()
         {
             // Arrange
-            var subtractor = new SpectralSubtractor(1024, 256)
+            var subtractor = new SpectralSubtractor(FrameSize, HopSize)
             {
-                Alpha = 2.0,
-                SpectralFloor = 0.02
+                Alpha = ValidAlpha,
+                SpectralFloor = ValidSpectralFloor
             };
 
             // Act
@@ -171,10 +172,10 @@ namespace SpectralDenoise.Tests
         public void IsValid_InvalidAlpha_ReturnsFalse()
         {
             // Arrange
-            var subtractor = new SpectralSubtractor(1024, 256)
+            var subtractor = new SpectralSubtractor(FrameSize, HopSize)
             {
-                Alpha = 0.5,
-                SpectralFloor = 0.02
+                Alpha = AlphaBelowOne,
+                SpectralFloor = ValidSpectralFloor
             };
 
             // Act
@@ -207,10 +208,10 @@ namespace SpectralDenoise.Tests
         public void EnsureValid_ValidSpectralSubtractor_DoesNotThrow()
         {
             // Arrange
-            var subtractor = new SpectralSubtractor(1024, 256)
+            var subtractor = new SpectralSubtractor(FrameSize, HopSize)
             {
-                Alpha = 2.0,
-                SpectralFloor = 0.02
+                Alpha = ValidAlpha,
+                SpectralFloor = ValidSpectralFloor
             };
 
             // Act & Assert
@@ -224,16 +225,16 @@ namespace SpectralDenoise.Tests
         public void EnsureValid_InvalidAlpha_ThrowsArgumentException()
         {
             // Arrange
-            var subtractor = new SpectralSubtractor(1024, 256)
+            var subtractor = new SpectralSubtractor(FrameSize, HopSize)
             {
-                Alpha = 0.5,
-                SpectralFloor = 0.02
+                Alpha = AlphaBelowOne,
+                SpectralFloor = ValidSpectralFloor
             };
 
             // Act & Assert
             var exception = Assert.Throws<ArgumentException>(() => subtractor.EnsureValid());
-            Assert.Contains("SpectralSubtractor is invalid", exception.Message);
-            Assert.Contains("Alpha", exception.Message);
+            Assert.Contains(SubtractorInvalidMessage, exception.Message);
+            Assert.Contains(AlphaPropertyName, exception.Message);
         }
 
         /// <summary>
@@ -256,7 +257,7 @@ namespace SpectralDenoise.Tests
         public void ValidateNoiseProfile_ValidNoiseProfile_ReturnsEmptyList()
         {
             // Arrange
-            var noiseProfile = new double[] { 0.1, 0.2, 0.3, 0.4 };
+            var noiseProfile = ValidNoiseProfile;
 
             // Act
             var result = noiseProfile.ValidateNoiseProfile();
@@ -279,7 +280,7 @@ namespace SpectralDenoise.Tests
 
             // Assert
             Assert.Single(result);
-            Assert.Contains("must not be empty", result[0]);
+            Assert.Contains(MustNotBeEmptyMessage, result[0]);
         }
 
         [Fact]
@@ -296,71 +297,71 @@ namespace SpectralDenoise.Tests
         public void ValidateNoiseProfile_WithNegativeValue_ReturnsError()
         {
             // Arrange
-            var noiseProfile = new double[] { 0.1, -0.2, 0.3, 0.4 };
+            var noiseProfile = NegativeValueNoiseProfile;
 
             // Act
             var result = noiseProfile.ValidateNoiseProfile();
 
             // Assert
             Assert.Single(result);
-            Assert.Contains("must not be negative", result[0]);
+            Assert.Contains(MustNotBeNegativeMessage, result[0]);
         }
 
         [Fact]
         public void ValidateNoiseProfile_WithNaN_ReturnsError()
         {
             // Arrange
-            var noiseProfile = new double[] { 0.1, double.NaN, 0.3, 0.4 };
+            var noiseProfile = NaNValueNoiseProfile;
 
             // Act
             var result = noiseProfile.ValidateNoiseProfile();
 
             // Assert
             Assert.Single(result);
-            Assert.Contains("must not be NaN", result[0]);
+            Assert.Contains(MustNotBeNaNMessage, result[0]);
         }
 
         [Fact]
         public void ValidateNoiseProfile_WithPositiveInfinity_ReturnsError()
         {
             // Arrange
-            var noiseProfile = new double[] { 0.1, double.PositiveInfinity, 0.3, 0.4 };
+            var noiseProfile = PositiveInfinityNoiseProfile;
 
             // Act
             var result = noiseProfile.ValidateNoiseProfile();
 
             // Assert
             Assert.Single(result);
-            Assert.Contains("must not be infinite", result[0]);
+            Assert.Contains(MustNotBeInfiniteMessage, result[0]);
         }
 
         [Fact]
         public void ValidateNoiseProfile_WithNegativeInfinity_ReturnsError()
         {
             // Arrange
-            var noiseProfile = new double[] { 0.1, double.NegativeInfinity, 0.3, 0.4 };
+            var noiseProfile = NegativeInfinityNoiseProfile;
 
             // Act
             var result = noiseProfile.ValidateNoiseProfile();
 
             // Assert
             Assert.Single(result);
-            Assert.Contains("must not be infinite", result[0]);
+            Assert.Contains(MustNotBeInfiniteMessage, result[0]);
         }
 
         [Fact]
         public void ValidateNoiseProfile_WithCustomParamName_ReturnsErrorWithCorrectParamName()
         {
             // Arrange
-            var noiseProfile = new double[] { 0.1, -0.2, 0.3, 0.4 };
+            var noiseProfile = NegativeValueNoiseProfile;
 
             // Act
-            var result = noiseProfile.ValidateNoiseProfile("customNoise");
+            var result = noiseProfile.ValidateNoiseProfile(CustomNoiseParamName);
 
             // Assert
             Assert.Single(result);
-            Assert.Contains("customNoise", result[0]);
-            Assert.Contains("must not be negative", result[0]);
+            Assert.Contains(CustomNoiseParamName, result[0]);
+            Assert.Contains(MustNotBeNegativeMessage, result[0]);
         }
 
         /// <summary>
@@ -370,7 +371,7 @@ namespace SpectralDenoise.Tests
         public void IsValidNoiseProfile_ValidNoiseProfile_ReturnsTrue()
         {
             // Arrange
-            var noiseProfile = new double[] { 0.1, 0.2, 0.3, 0.4 };
+            var noiseProfile = ValidNoiseProfile;
 
             // Act
             var result = noiseProfile.IsValidNoiseProfile();
@@ -418,7 +419,7 @@ namespace SpectralDenoise.Tests
         public void IsValidNoiseProfile_WithInvalidValues_ReturnsFalse()
         {
             // Arrange
-            var noiseProfile = new double[] { 0.1, -0.2, double.NaN };
+            var noiseProfile = InvalidValuesNoiseProfile;
 
             // Act
             var result = noiseProfile.IsValidNoiseProfile();
@@ -431,7 +432,7 @@ namespace SpectralDenoise.Tests
         public void EnsureValidNoiseProfile_ValidNoiseProfile_DoesNotThrow()
         {
             // Arrange
-            var noiseProfile = new double[] { 0.1, 0.2, 0.3, 0.4 };
+            var noiseProfile = ValidNoiseProfile;
 
             // Act & Assert
             noiseProfile.EnsureValidNoiseProfile(); // Should not throw
@@ -445,8 +446,8 @@ namespace SpectralDenoise.Tests
 
             // Act & Assert
             var exception = Assert.Throws<ArgumentException>(() => noiseProfile.EnsureValidNoiseProfile());
-            Assert.Contains("Noise profile is invalid", exception.Message);
-            Assert.Contains("must not be empty", exception.Message);
+            Assert.Contains(NoiseProfileInvalidMessage, exception.Message);
+            Assert.Contains(MustNotBeEmptyMessage, exception.Message);
         }
 
         [Fact]
@@ -463,24 +464,24 @@ namespace SpectralDenoise.Tests
         public void EnsureValidNoiseProfile_WithNegativeValue_ThrowsArgumentException()
         {
             // Arrange
-            var noiseProfile = new double[] { 0.1, -0.2, 0.3, 0.4 };
+            var noiseProfile = NegativeValueNoiseProfile;
 
             // Act & Assert
             var exception = Assert.Throws<ArgumentException>(() => noiseProfile.EnsureValidNoiseProfile());
-            Assert.Contains("Noise profile is invalid", exception.Message);
-            Assert.Contains("must not be negative", exception.Message);
+            Assert.Contains(NoiseProfileInvalidMessage, exception.Message);
+            Assert.Contains(MustNotBeNegativeMessage, exception.Message);
         }
 
         [Fact]
         public void EnsureValidNoiseProfile_WithCustomParamName_ThrowsArgumentExceptionWithCorrectParamName()
         {
             // Arrange
-            var noiseProfile = new double[] { 0.1, -0.2, 0.3, 0.4 };
+            var noiseProfile = NegativeValueNoiseProfile;
 
             // Act & Assert
-            var exception = Assert.Throws<ArgumentException>(() => noiseProfile.EnsureValidNoiseProfile("testProfile"));
-            Assert.Contains("testProfile", exception.Message);
-            Assert.Contains("must not be negative", exception.Message);
+            var exception = Assert.Throws<ArgumentException>(() => noiseProfile.EnsureValidNoiseProfile(TestProfileParamName));
+            Assert.Contains(TestProfileParamName, exception.Message);
+            Assert.Contains(MustNotBeNegativeMessage, exception.Message);
         }
     }
 }
